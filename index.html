@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mój Licznik Kalorii</title>
+  <style>
+    :root {
+      --bg-color: #f4f6f8;
+      --card-bg: #ffffff;
+      --primary: #22c55e;
+      --primary-dark: #16a34a;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      
+      --carbs-color: #3b82f6;
+      --protein-color: #ef4444;
+      --fat-color: #eab308;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding-bottom: 30px;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      padding: 16px;
+    }
+
+    /* Header Controls */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .app-title {
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .settings-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+
+    /* Calorie Header Card */
+    .summary-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      margin-bottom: 16px;
+    }
+
+    .summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+
+    .summary-title {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .calorie-digits {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .calorie-digits span {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    /* Progress Bar */
+    .progress-bar-bg {
+      width: 100%;
+      height: 12px;
+      background-color: #f1f5f9;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background-color: var(--primary);
+      width: 0%;
+      border-radius: 6px;
+      transition: width 0.3s ease;
+    }
+
+    /* Macros Breakdown */
+    .macros-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    .macro-item {
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .macro-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .macro-value {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .macro-bar {
+      height: 4px;
+      border-radius: 2px;
+      margin-top: 6px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+
+    .macro-fill {
+      height: 100%;
+      width: 0%;
+    }
+
+    /* Meal Sections */
+    .meal-section {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    .meal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .meal-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meal-calories {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .food-list {
+      list-style: none;
+    }
+
+    .food-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-top: 1px solid #f1f5f9;
+      font-size: 14px;
+    }
+
+    .food-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .food-name {
+      font-weight: 600;
+    }
+
+    .food-details {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #ef4444;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
+    .add-food-btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 8px;
+      background: #f1f5f9;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      color: var(--primary-dark);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* Weight Log Section */
+    .weight-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    .weight-header {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .weight-input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .weight-input-group input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .weight-input-group button {
+      padding: 10px 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .weight-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .weight-table th, .weight-table td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .weight-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    /* Modal / Form */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: flex-end;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 480px;
+      border-radius: 20px 20px 0 0;
+      padding: 24px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="top-bar">
+    <div class="app-title">Licznik Kalorii</div>
+    <button class="settings-btn" onclick="openGoalsModal()">⚙️ Ustaw cele</button>
+  </div>
+
+  <!-- Calorie Summary Card -->
+  <div class="summary-card">
+    <div class="summary-header">
+      <span class="summary-title">Podsumowanie dnia</span>
+      <div class="calorie-digits" id="calorieDigits">0 <span>/ 2000 kcal</span></div>
+    </div>
+
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="calorieProgress"></div>
+    </div>
+
+    <div class="macros-grid">
+      <div class="macro-item">
+        <div class="macro-name">Białko</div>
+        <div class="macro-value" id="proteinVal">0 / 150g</div>
+        <div class="macro-bar"><div class="macro-fill" id="proteinFill" style="background: var(--protein-color);"></div></div>
+      </div>
+      <div class="macro-item">
+        <div class="macro-name">Węgle</div>
+        <div class="macro-value" id="carbsVal">0 / 250g</div>
+        <div class="macro-bar"><div class="macro-fill" id="carbsFill" style="background: var(--carbs-color);"></div></div>
+      </div>
+      <div class="macro-item">
+        <div class="macro-name">Tłuszcze</div>
+        <div class="macro-value" id="fatVal">0 / 65g</div>
+        <div class="macro-bar"><div class="macro-fill" id="fatFill" style="background: var(--fat-color);"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meals List -->
+  <div id="mealsContainer"></div>
+
+  <!-- Weight Tracker Section -->
+  <div class="weight-card">
+    <div class="weight-header">⚖️ Śledzenie wagi</div>
+    <div class="weight-input-group">
+      <input type="number" step="0.1" id="newWeightInput" placeholder="Wpisz wagę (kg)">
+      <button onclick="addWeightLog()">Zapisz</button>
+    </div>
+    <table class="weight-table">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Waga (kg)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="weightTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Food Modal -->
+<div class="modal" id="addModal">
+  <div class="modal-content">
+    <div class="modal-title" id="modalTitle">Dodaj produkt</div>
+    <form id="foodForm" onsubmit="saveFood(event)">
+      <div class="form-group">
+        <label>Nazwa potrawy / produktu</label>
+        <input type="text" id="foodName" placeholder="np. Owsianka z borówkami" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Waga (g)</label>
+          <input type="number" id="foodWeight" placeholder="100" required oninput="calculatePreview()">
+        </div>
+        <div class="form-group">
+          <label>Kcal w 100g</label>
+          <input type="number" id="foodKcal100" placeholder="350" required oninput="calculatePreview()">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Białko w 100g</label>
+          <input type="number" step="0.1" id="foodP100" placeholder="12" oninput="calculatePreview()">
+        </div>
+        <div class="form-group">
+          <label>Węgle w 100g</label>
+          <input type="number" step="0.1" id="foodC100" placeholder="60" oninput="calculatePreview()">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Tłuszcz w 100g</label>
+        <input type="number" step="0.1" id="foodF100" placeholder="5" oninput="calculatePreview()">
+      </div>
+
+      <div style="background: #f8fafc; padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; font-weight: 600;" id="calcPreview">
+        Wyliczone: 0 kcal | B: 0g | W: 0g | T: 0g
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addModal')">Anuluj</button>
+        <button type="submit" class="btn btn-primary">Dodaj do posiłku</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Goals Modal -->
+<div class="modal" id="goalsModal">
+  <div class="modal-content">
+    <div class="modal-title">Ustaw swoje cele dziennie</div>
+    <form id="goalsForm" onsubmit="saveGoals(event)">
+      <div class="form-group">
+        <label>Cel Kalorii (kcal)</label>
+        <input type="number" id="goalKcalInput" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Białko (g)</label>
+          <input type="number" id="goalPInput" required>
+        </div>
+        <div class="form-group">
+          <label>Węglowodany (g)</label>
+          <input type="number" id="goalCInput" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Tłuszcze (g)</label>
+        <input type="number" id="goalFInput" required>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('goalsModal')">Anuluj</button>
+        <button type="submit" class="btn btn-primary">Zapisz cele</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let activeMealType = '';
+
+  let userGoals = JSON.parse(localStorage.getItem('my_fit_goals')) || {
+    kcal: 2200, p: 150, c: 250, f: 65
+  };
+
+  const mealTypes = [
+    { id: 'breakfast', name: 'Śniadanie', icon: '🥣' },
+    { id: 'lunch', name: 'Obiad', icon: '🥗' },
+    { id: 'dinner', name: 'Kolacja', icon: '🍽️' },
+    { id: 'snacks', name: 'Przekąski', icon: '🍎' }
+  ];
+
+  let appMeals = JSON.parse(localStorage.getItem('my_fit_meals')) || {
+    breakfast: [], lunch: [], dinner: [], snacks: []
+  };
+
+  let weightHistory = JSON.parse(localStorage.getItem('my_fit_weight')) || [];
+
+  function saveAllData() {
+    localStorage.setItem('my_fit_goals', JSON.stringify(userGoals));
+    localStorage.setItem('my_fit_meals', JSON.stringify(appMeals));
+    localStorage.setItem('my_fit_weight', JSON.stringify(weightHistory));
+    render();
+  }
+
+  function openAddModal(mealId) {
+    activeMealType = mealId;
+    const meal = mealTypes.find(m => m.id === mealId);
+    document.getElementById('modalTitle').innerText = `Dodaj do: ${meal.name}`;
+    document.getElementById('foodForm').reset();
+    document.getElementById('calcPreview').innerText = "Wyliczone: 0 kcal | B: 0g | W: 0g | T: 0g";
+    document.getElementById('addModal').style.display = 'flex';
+  }
+
+  function openGoalsModal() {
+    document.getElementById('goalKcalInput').value = userGoals.kcal;
+    document.getElementById('goalPInput').value = userGoals.p;
+    document.getElementById('goalCInput').value = userGoals.c;
+    document.getElementById('goalFInput').value = userGoals.f;
+    document.getElementById('goalsModal').style.display = 'flex';
+  }
+
+  function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+  }
+
+  function saveGoals(e) {
+    e.preventDefault();
+    userGoals = {
+      kcal: parseInt(document.getElementById('goalKcalInput').value) || 2000,
+      p: parseInt(document.getElementById('goalPInput').value) || 150,
+      c: parseInt(document.getElementById('goalCInput').value) || 200,
+      f: parseInt(document.getElementById('goalFInput').value) || 60
+    };
+    saveAllData();
+    closeModal('goalsModal');
+  }
+
+  function calculatePreview() {
+    const weight = parseFloat(document.getElementById('foodWeight').value) || 0;
+    const kcal100 = parseFloat(document.getElementById('foodKcal100').value) || 0;
+    const p100 = parseFloat(document.getElementById('foodP100').value) || 0;
+    const c100 = parseFloat(document.getElementById('foodC100').value) || 0;
+    const f100 = parseFloat(document.getElementById('foodF100').value) || 0;
+
+    const kcal = Math.round((weight / 100) * kcal100);
+    const p = ((weight / 100) * p100).toFixed(1);
+    const c = ((weight / 100) * c100).toFixed(1);
+    const f = ((weight / 100) * f100).toFixed(1);
+
+    document.getElementById('calcPreview').innerText = `Wyliczone: ${kcal} kcal | B: ${p}g | W: ${c}g | T: ${f}g`;
+  }
+
+  function saveFood(e) {
+    e.preventDefault();
+    const weight = parseFloat(document.getElementById('foodWeight').value) || 0;
+    const kcal100 = parseFloat(document.getElementById('foodKcal100').value) || 0;
+    const p100 = parseFloat(document.getElementById('foodP100').value) || 0;
+    const c100 = parseFloat(document.getElementById('foodC100').value) || 0;
+    const f100 = parseFloat(document.getElementById('foodF100').value) || 0;
+
+    const newFood = {
+      id: Date.now(),
+      name: document.getElementById('foodName').value,
+      weight: weight,
+      kcal: Math.round((weight / 100) * kcal100),
+      p: parseFloat(((weight / 100) * p100).toFixed(1)),
+      c: parseFloat(((weight / 100) * c100).toFixed(1)),
+      f: parseFloat(((weight / 100) * f100).toFixed(1))
+    };
+
+    appMeals[activeMealType].push(newFood);
+    saveAllData();
+    closeModal('addModal');
+  }
+
+  function deleteFood(mealId, foodId) {
+    appMeals[mealId] = appMeals[mealId].filter(item => item.id !== foodId);
+    saveAllData();
+  }
+
+  function addWeightLog() {
+    const input = document.getElementById('newWeightInput');
+    const val = parseFloat(input.value);
+    if (!val) return;
+
+    const dateStr = new Date().toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    weightHistory.unshift({ id: Date.now(), date: dateStr, weight: val });
+    input.value = '';
+    saveAllData();
+  }
+
+  function deleteWeightLog(id) {
+    weightHistory = weightHistory.filter(item => item.id !== id);
+    saveAllData();
+  }
+
+  function render() {
+    let totalKcal = 0;
+    let totalP = 0;
+    let totalC = 0;
+    let totalF = 0;
+
+    const container = document.getElementById('mealsContainer');
+    container.innerHTML = '';
+
+    mealTypes.forEach(meal => {
+      const items = appMeals[meal.id] || [];
+      let mealKcal = 0;
+
+      let itemsHtml = '';
+      items.forEach(item => {
+        mealKcal += item.kcal;
+        totalKcal += item.kcal;
+        totalP += item.p;
+        totalC += item.c;
+        totalF += item.f;
+
+        itemsHtml += `
+          <li class="food-item">
+            <div class="food-info">
+              <span class="food-name">${item.name}</span>
+              <span class="food-details">${item.weight}g • ${item.kcal} kcal (B: ${item.p}g W: ${item.c}g T: ${item.f}g)</span>
+            </div>
+            <button class="delete-btn" onclick="deleteFood('${meal.id}', ${item.id})">&times;</button>
+          </li>
+        `;
+      });
+
+      const mealSection = document.createElement('div');
+      mealSection.className = 'meal-section';
+      mealSection.innerHTML = `
+        <div class="meal-header">
+          <span class="meal-title"><span>${meal.icon}</span> ${meal.name}</span>
+          <span class="meal-calories">${mealKcal} kcal</span>
+        </div>
+        <ul class="food-list">${itemsHtml}</ul>
+        <button class="add-food-btn" onclick="openAddModal('${meal.id}')">+ Dodaj produkt</button>
+      `;
+
+      container.appendChild(mealSection);
+    });
+
+    // Top Summary
+    document.getElementById('calorieDigits').innerHTML = `${totalKcal} <span>/ ${userGoals.kcal} kcal</span>`;
+    const pct = Math.min(100, Math.round((totalKcal / userGoals.kcal) * 100));
+    document.getElementById('calorieProgress').style.width = `${pct}%`;
+
+    // Macros
+    document.getElementById('proteinVal').innerText = `${totalP.toFixed(1)} / ${userGoals.p}g`;
+    document.getElementById('proteinFill').style.width = `${Math.min(100, (totalP / userGoals.p) * 100)}%`;
+
+    document.getElementById('carbsVal').innerText = `${totalC.toFixed(1)} / ${userGoals.c}g`;
+    document.getElementById('carbsFill').style.width = `${Math.min(100, (totalC / userGoals.c) * 100)}%`;
+
+    document.getElementById('fatVal').innerText = `${totalF.toFixed(1)} / ${userGoals.f}g`;
+    document.getElementById('fatFill').style.width = `${Math.min(100, (totalF / userGoals.f) * 100)}%`;
+
+    // Weight Table
+    const tbody = document.getElementById('weightTableBody');
+    tbody.innerHTML = '';
+    weightHistory.forEach(item => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${item.date}</td>
+          <td><b>${item.weight} kg</b></td>
+          <td><button class="delete-btn" onclick="deleteWeightLog(${item.id})">&times;</button></td>
+        </tr>
+      `;
+    });
+  }
+
+  render();
+</script>
+</body>
+</html>
