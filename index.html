@@ -722,7 +722,7 @@
     saveAllData();
   }
 
-  function renderChart() {
+function renderChart() {
     const ctx = document.getElementById('weightChart').getContext('2d');
     const reversedHistory = [...weightHistory].reverse();
     const labels = reversedHistory.map(item => item.date);
