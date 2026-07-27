@@ -291,7 +291,7 @@
       margin-bottom: 16px;
     }
 
-    .weight-input-group input, .form-group input {
+    .weight-input-group input, .form-group input, .form-group select {
       flex: 1;
       padding: 10px;
       border: 1px solid var(--border-color);
@@ -299,6 +299,7 @@
       font-size: 14px;
       background: var(--bg-color);
       color: var(--text-main);
+      width: 100%;
     }
 
     .weight-input-group button {
@@ -356,12 +357,30 @@
       max-width: 480px;
       border-radius: 20px 20px 0 0;
       padding: 24px;
+      max-height: 90vh;
+      overflow-y: auto;
     }
 
     .modal-title {
       font-size: 18px;
       font-weight: 700;
       margin-bottom: 16px;
+    }
+
+    .preset-box {
+      background: var(--bg-color);
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-color);
+    }
+
+    .preset-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      margin-bottom: 6px;
     }
 
     .form-group {
@@ -485,6 +504,15 @@
 <div class="modal" id="addModal">
   <div class="modal-content">
     <div class="modal-title" id="modalTitle">Dodaj produkt</div>
+    
+    <!-- Gotowa baza produktów -->
+    <div class="preset-box">
+      <div class="preset-title">🔍 Wybierz z gotowej bazy</div>
+      <select id="presetSelect" onchange="selectPresetProduct()">
+        <option value="">-- Wybierz produkt z listy --</option>
+      </select>
+    </div>
+
     <form id="foodForm" onsubmit="saveFood(event)">
       <div class="form-group">
         <label>Nazwa potrawy / produktu</label>
@@ -583,6 +611,49 @@
   let activeMealType = '';
   let chartInstance = null;
 
+  // BAZA PODSTAWOWYCH PRODUKTÓW (na 100g)
+  const defaultProducts = [
+    { name: "Jajko całe", kcal: 143, p: 12.6, c: 0.7, f: 9.5 },
+    { name: "Banan", kcal: 89, p: 1.1, c: 22.8, f: 0.3 },
+    { name: "Jabłko", kcal: 52, p: 0.3, c: 13.8, f: 0.2 },
+    { name: "Pierś z kurczaka (surowa)", kcal: 120, p: 21.5, c: 0, f: 2.6 },
+    { name: "Ryż biały (surowy)", kcal: 350, p: 6.7, c: 78, f: 0.7 },
+    { name: "Płatki owsiane", kcal: 366, p: 13.5, c: 58.7, f: 7.2 },
+    { name: "Twaróg półtłusty", kcal: 133, p: 18, c: 3.7, f: 4.7 },
+    { name: "Mleko 2%", kcal: 50, p: 3.4, c: 4.7, f: 2.0 },
+    { name: "Chleb pszenny / kajzerka", kcal: 265, p: 8.0, c: 51, f: 1.5 },
+    { name: "Chleb żytni razowy", kcal: 225, p: 6.0, c: 45, f: 1.7 },
+    { name: "Pomidor", kcal: 18, p: 0.9, c: 3.9, f: 0.2 },
+    { name: "Ogórek", kcal: 15, p: 0.7, c: 3.6, f: 0.1 },
+    { name: "Ziemniaki (surowe)", kcal: 77, p: 2.0, c: 17, f: 0.1 },
+    { name: "Oliwa z oliwek", kcal: 884, p: 0, c: 0, f: 100 },
+    { name: "Masło", kcal: 717, p: 0.9, c: 0.7, f: 81 },
+    { name: "Skyr naturalny", kcal: 66, p: 12, c: 4.0, f: 0.2 }
+  ];
+
+  function populatePresetSelect() {
+    const select = document.getElementById('presetSelect');
+    select.innerHTML = '<option value="">-- Wybierz produkt z listy --</option>';
+    defaultProducts.sort((a, b) => a.name.localeCompare(b.name)).forEach((prod, index) => {
+      select.innerHTML += `<option value="${index}">${prod.name} (${prod.kcal} kcal/100g)</option>`;
+    });
+  }
+
+  function selectPresetProduct() {
+    const idx = document.getElementById('presetSelect').value;
+    if (idx === "") return;
+    const prod = defaultProducts[idx];
+    document.getElementById('foodName').value = prod.name;
+    document.getElementById('foodKcal100').value = prod.kcal;
+    document.getElementById('foodP100').value = prod.p;
+    document.getElementById('foodC100').value = prod.c;
+    document.getElementById('foodF100').value = prod.f;
+    if (!document.getElementById('foodWeight').value) {
+      document.getElementById('foodWeight').value = 100;
+    }
+    calculatePreview();
+  }
+
   // Theme Toggle
   let currentTheme = localStorage.getItem('my_fit_theme') || 'light';
   document.documentElement.setAttribute('data-theme', currentTheme);
@@ -623,6 +694,7 @@
     const meal = mealTypes.find(m => m.id === mealId);
     document.getElementById('modalTitle').innerText = `Dodaj do: ${meal.name}`;
     document.getElementById('foodForm').reset();
+    populatePresetSelect();
     document.getElementById('calcPreview').innerText = "Wyliczone: 0 kcal | B: 0g | W: 0g | T: 0g";
     document.getElementById('addModal').style.display = 'flex';
   }
@@ -722,7 +794,7 @@
     saveAllData();
   }
 
-function renderChart() {
+  function renderChart() {
     const ctx = document.getElementById('weightChart').getContext('2d');
     const reversedHistory = [...weightHistory].reverse();
     const labels = reversedHistory.map(item => item.date);
