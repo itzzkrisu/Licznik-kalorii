@@ -61,15 +61,18 @@
     /* Modal Styling */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; }
     .modal.active { display: flex; }
-    .modal-content { background: var(--bg-card); width: 90%; max-width: 450px; padding: 20px; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
+    .modal-content { background: var(--bg-card); width: 90%; max-width: 480px; padding: 20px; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
     .modal-content h3 { margin-bottom: 15px; }
 
     .form-group { margin-bottom: 12px; position: relative; }
     .form-group label { display: block; font-size: 0.85rem; margin-bottom: 4px; color: var(--text-muted); }
     .form-group input, .form-group select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-main); }
 
+    .calc-box { background: var(--bg-primary); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed var(--border); }
+    .calc-box h4 { font-size: 0.9rem; margin-bottom: 8px; color: var(--accent); }
+
     /* Lista wyników wyszukiwania */
-    .search-results { list-style: none; max-height: 160px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); margin-top: 5px; display: none; }
+    .search-results { list-style: none; max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); margin-top: 5px; display: none; }
     .search-results.active { display: block; }
     .search-results li { padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 0.85rem; }
     .search-results li:hover { background: var(--bg-primary); }
@@ -100,7 +103,7 @@
   <section class="card">
     <div class="card-title-row">
       <div class="card-title">Dzisiejsze podsumowanie</div>
-      <button class="edit-goals-btn" onclick="openGoalsModal()">⚙️ Ustaw cele</button>
+      <button class="edit-goals-btn" onclick="openGoalsModal()">⚙️ Ustaw / Oblicz cele</button>
     </div>
     <div class="summary-grid">
       <div class="summary-box">
@@ -181,7 +184,7 @@
 
     <div class="form-group">
       <label>🔍 Wyszukaj w bazie produktów</label>
-      <input type="text" id="searchInput" placeholder="Wpisz nazwę (np. twaróg, kurczak)..." oninput="searchProduct()">
+      <input type="text" id="searchInput" placeholder="Wpisz np. jabłko, kurczak, banana..." oninput="searchProduct()">
       <ul class="search-results" id="searchResults"></ul>
     </div>
 
@@ -219,10 +222,57 @@
   </div>
 </div>
 
-<!-- Modal Edycji Celów -->
+<!-- Modal Cele + Kalkulator -->
 <div class="modal" id="goalsModal">
   <div class="modal-content">
-    <h3>Ustaw dzienne cele</h3>
+    <h3>Cele i Kalkulator Zapotrzebowania</h3>
+
+    <div class="calc-box">
+      <h4>🧮 Wylicz automatycznie (BMR / TDEE)</h4>
+      <div class="form-group">
+        <label>Płeć</label>
+        <select id="calcGender">
+          <option value="male">Mężczyzna</option>
+          <option value="female">Kobieta</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Wiek</label>
+          <input type="number" id="calcAge" placeholder="np. 25">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Wzrost (cm)</label>
+          <input type="number" id="calcHeight" placeholder="np. 175">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Waga (kg)</label>
+          <input type="number" id="calcWeight" placeholder="np. 70">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Poziom aktywności</label>
+        <select id="calcActivity">
+          <option value="1.2">Siedzący tryb życia (brak ćwiczeń)</option>
+          <option value="1.375">Niska (ćwiczenia 1-3 razy w tyg.)</option>
+          <option value="1.55" selected>Umiarkowana (ćwiczenia 3-5 razy w tyg.)</option>
+          <option value="1.725">Wysoka (ćwiczenia 6-7 razy w tyg.)</option>
+          <option value="1.9">Bardzo wysoka (ciężkie treningi/praca fizyczna)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Cel</label>
+        <select id="calcGoal">
+          <option value="-500">Redukcja (-500 kcal)</option>
+          <option value="0" selected>Utrzymanie wagi</option>
+          <option value="300">Masa (+300 kcal)</option>
+        </select>
+      </div>
+      <button class="add-btn" style="width: 100%; margin-top: 5px;" onclick="calculateNeed()">⚡ Oblicz i wstaw cele</button>
+    </div>
+
+    <hr style="margin: 15px 0; border: 0; border-top: 1px solid var(--border);">
+
     <div class="form-group">
       <label>Cel kalorii (kcal)</label>
       <input type="number" id="goalKcal" placeholder="2000">
@@ -247,6 +297,37 @@
 </div>
 
 <script>
+  // Wbudowana szybka baza podstawowych produktów (na 100g)
+  const localProducts = [
+    { name: "Jabłko", kcal: 52, p: 0.3, c: 14, f: 0.2 },
+    { name: "Banan", kcal: 89, p: 1.1, c: 23, f: 0.3 },
+    { name: "Pomarańcza", kcal: 47, p: 0.9, c: 12, f: 0.1 },
+    { name: "Truskawki", kcal: 32, p: 0.7, c: 7.7, f: 0.3 },
+    { name: "Borówki", kcal: 57, p: 0.7, c: 14, f: 0.3 },
+    { name: "Arbuz", kcal: 30, p: 0.6, c: 7.5, f: 0.2 },
+    { name: "Pomidor", kcal: 18, p: 0.9, c: 3.9, f: 0.2 },
+    { name: "Ogórek", kcal: 15, p: 0.7, c: 3.6, f: 0.1 },
+    { name: "Marchew", kcal: 41, p: 0.9, c: 10, f: 0.2 },
+    { name: "Brokuły", kcal: 34, p: 2.8, c: 7, f: 0.4 },
+    { name: "Szpinak", kcal: 23, p: 2.9, c: 3.6, f: 0.4 },
+    { name: "Ziemniaki (gotowane)", kcal: 87, p: 1.9, c: 20, f: 0.1 },
+    { name: "Pierś z kurczaka (surowa)", kcal: 120, p: 22.5, c: 0, f: 2.6 },
+    { name: "Pierś z indyka", kcal: 104, p: 24, c: 0, f: 1 },
+    { name: "Mięso mielone wołowe", kcal: 250, p: 26, c: 0, f: 15 },
+    { name: "Jajko (1 szt. ~ 50g)", kcal: 143, p: 12.6, c: 0.7, f: 9.5 },
+    { name: "Twaróg chudy", kcal: 86, p: 18, c: 3.5, f: 0.5 },
+    { name: "Twaróg półtłusty", kcal: 133, p: 16, c: 3.7, f: 4.7 },
+    { name: "Mleko 2%", kcal: 50, p: 3.3, c: 4.8, f: 2 },
+    { name: "Ryż biały (surowy)", kcal: 350, p: 6.8, c: 78, f: 0.6 },
+    { name: "Ryż basmati (surowy)", kcal: 350, p: 8.5, c: 77, f: 0.6 },
+    { name: "Płatki owsiane", kcal: 366, p: 13.5, c: 58, f: 7 },
+    { name: "Chleb pszenno-żytni", kcal: 247, p: 8, c: 50, f: 1.3 },
+    { name: "Chleb razowy", kcal: 213, p: 6, c: 45, f: 1.5 },
+    { name: "Oliwa z oliwek", kcal: 884, p: 0, c: 0, f: 100 },
+    { name: "Masło orzechowe", kcal: 588, p: 25, c: 20, f: 50 },
+    { name: "Migdały", kcal: 579, p: 21, c: 22, f: 50 }
+  ];
+
   let currentMeal = '';
   let searchTimeout = null;
   let appData = JSON.parse(localStorage.getItem('calorieAppData')) || {
@@ -288,53 +369,57 @@
     });
   }
 
-  // Wyszukiwanie na żywo – poprawiony adres i obsługa zapytań
+  // Wyszukiwanie: Baza lokalna + API Open Food Facts
   function searchProduct() {
     clearTimeout(searchTimeout);
-    const query = document.getElementById('searchInput').value.trim();
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
     const resultsUl = document.getElementById('searchResults');
 
-    if (query.length < 3) {
+    if (query.length < 2) {
       resultsUl.classList.remove('active');
       resultsUl.innerHTML = '';
       return;
     }
 
-    searchTimeout = setTimeout(() => {
-      resultsUl.innerHTML = '<li style="color:var(--text-muted)">Szukam...</li>';
-      resultsUl.classList.add('active');
+    resultsUl.innerHTML = '';
+    resultsUl.classList.add('active');
 
-      const url = `https://pl.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=10`;
+    // 1. Szukaj najpierw w bazie lokalnej
+    const matchedLocal = localProducts.filter(p => p.name.toLowerCase().includes(query));
+    
+    matchedLocal.forEach(prod => {
+      const li = document.createElement('li');
+      li.innerHTML = `<strong>🟢 ${prod.name}</strong> <span>${prod.kcal} kcal | B: ${prod.p}g | W: ${prod.c}g | T: ${prod.f}g (na 100g)</span>`;
+      li.onclick = () => selectSearchResult(prod.name, prod.kcal, prod.p, prod.c, prod.f);
+      resultsUl.appendChild(li);
+    });
+
+    // 2. Szukaj w API Open Food Facts po 400ms zwłoki
+    searchTimeout = setTimeout(() => {
+      const url = `https://pl.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=8`;
 
       fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error("Network response error");
-          return res.json();
-        })
+        .then(res => res.json())
         .then(data => {
-          resultsUl.innerHTML = '';
           if (data.products && data.products.length > 0) {
             data.products.forEach(prod => {
-              const name = prod.product_name_pl || prod.product_name || 'Produkt bez nazwy';
+              const name = prod.product_name_pl || prod.product_name;
+              if(!name) return;
+
               const n = prod.nutriments || {};
-              
               const kcal = Math.round(n['energy-kcal_100g'] || n['energy-kcal_value'] || n['energy-kcal'] || 0);
               const p = Math.round((n.proteins_100g || n.proteins_value || 0) * 10) / 10;
               const c = Math.round((n.carbohydrates_100g || n.carbohydrates_value || 0) * 10) / 10;
               const f = Math.round((n.fat_100g || n.fat_value || 0) * 10) / 10;
 
               const li = document.createElement('li');
-              li.innerHTML = `<strong>${name}</strong><span>${kcal} kcal | B: ${p}g | W: ${c}g | T: ${f}g (na 100g)</span>`;
+              li.innerHTML = `<strong>🌐 ${name}</strong><span>${kcal} kcal | B: ${p}g | W: ${c}g | T: ${f}g (na 100g)</span>`;
               li.onclick = () => selectSearchResult(name, kcal, p, c, f);
               resultsUl.appendChild(li);
             });
-          } else {
-            resultsUl.innerHTML = '<li style="color:var(--text-muted)">Brak wyników.</li>';
           }
         })
-        .catch(err => {
-          resultsUl.innerHTML = '<li style="color:#ef4444">Nie udało się pobrać danych. Spróbuj za chwilę.</li>';
-        });
+        .catch(() => {});
     }, 400);
   }
 
@@ -349,6 +434,43 @@
     resultsUl.classList.remove('active');
     resultsUl.innerHTML = '';
     document.getElementById('searchInput').value = '';
+  }
+
+  // Obliczanie zapotrzebowania BMR/TDEE
+  function calculateNeed() {
+    const gender = document.getElementById('calcGender').value;
+    const age = parseFloat(document.getElementById('calcAge').value);
+    const height = parseFloat(document.getElementById('calcHeight').value);
+    const weight = parseFloat(document.getElementById('calcWeight').value);
+    const activity = parseFloat(document.getElementById('calcActivity').value);
+    const goalModifier = parseFloat(document.getElementById('calcGoal').value);
+
+    if (!age || !height || !weight) {
+      return alert("Proszę uzupełnić wiek, wzrost oraz wagę w kalkulatorze!");
+    }
+
+    // Wzór Mifflin-St Jeor
+    let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+    if (gender === 'male') {
+      bmr += 5;
+    } else {
+      bmr -= 161;
+    }
+
+    let tdee = Math.round((bmr * activity) + goalModifier);
+    if (tdee < 1200) tdee = 1200; // Bezpieczny limit dolny
+
+    // Domyślny optymalny podział makro (20% B / 50% W / 30% T)
+    let protein = Math.round((tdee * 0.25) / 4); // 25% kcal z białka (4 kcal/g)
+    let fat = Math.round((tdee * 0.25) / 9);     // 25% kcal z tłuszczu (9 kcal/g)
+    let carbs = Math.round((tdee * 0.50) / 4);   // 50% kcal z węgli (4 kcal/g)
+
+    document.getElementById('goalKcal').value = tdee;
+    document.getElementById('goalProtein').value = protein;
+    document.getElementById('goalCarbs').value = carbs;
+    document.getElementById('goalFat').value = fat;
+
+    alert(`Wyliczone zapotrzebowanie: ${tdee} kcal!\nWartości zostały wstawione do formularza poniżej. Kliknij 'Zapisz cele'.`);
   }
 
   // Modale
@@ -369,6 +491,12 @@
     document.getElementById('goalProtein').value = g.protein;
     document.getElementById('goalCarbs').value = g.carbs;
     document.getElementById('goalFat').value = g.fat;
+    
+    // Jeśli użytkownik podał wcześniej wagę, wstawiamy do kalkulatora
+    if (appData.weights.length > 0) {
+      document.getElementById('calcWeight').value = appData.weights[appData.weights.length - 1].val;
+    }
+
     document.getElementById('goalsModal').classList.add('active');
   }
 
