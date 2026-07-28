@@ -288,7 +288,7 @@
     });
   }
 
-  // Wyszukiwanie na żywo w Open Food Facts
+  // Wyszukiwanie na żywo – poprawiony adres i obsługa zapytań
   function searchProduct() {
     clearTimeout(searchTimeout);
     const query = document.getElementById('searchInput').value.trim();
@@ -304,18 +304,24 @@
       resultsUl.innerHTML = '<li style="color:var(--text-muted)">Szukam...</li>';
       resultsUl.classList.add('active');
 
-      fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=8`)
-        .then(res => res.json())
+      const url = `https://pl.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=10`;
+
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error("Network response error");
+          return res.json();
+        })
         .then(data => {
           resultsUl.innerHTML = '';
           if (data.products && data.products.length > 0) {
             data.products.forEach(prod => {
               const name = prod.product_name_pl || prod.product_name || 'Produkt bez nazwy';
               const n = prod.nutriments || {};
-              const kcal = Math.round(n['energy-kcal_100g'] || n['energy-kcal'] || 0);
-              const p = Math.round((n.proteins_100g || 0) * 10) / 10;
-              const c = Math.round((n.carbohydrates_100g || 0) * 10) / 10;
-              const f = Math.round((n.fat_100g || 0) * 10) / 10;
+              
+              const kcal = Math.round(n['energy-kcal_100g'] || n['energy-kcal_value'] || n['energy-kcal'] || 0);
+              const p = Math.round((n.proteins_100g || n.proteins_value || 0) * 10) / 10;
+              const c = Math.round((n.carbohydrates_100g || n.carbohydrates_value || 0) * 10) / 10;
+              const f = Math.round((n.fat_100g || n.fat_value || 0) * 10) / 10;
 
               const li = document.createElement('li');
               li.innerHTML = `<strong>${name}</strong><span>${kcal} kcal | B: ${p}g | W: ${c}g | T: ${f}g (na 100g)</span>`;
@@ -326,8 +332,8 @@
             resultsUl.innerHTML = '<li style="color:var(--text-muted)">Brak wyników.</li>';
           }
         })
-        .catch(() => {
-          resultsUl.innerHTML = '<li style="color:#ef4444">Błąd wyszukiwania.</li>';
+        .catch(err => {
+          resultsUl.innerHTML = '<li style="color:#ef4444">Nie udało się pobrać danych. Spróbuj za chwilę.</li>';
         });
     }, 400);
   }
