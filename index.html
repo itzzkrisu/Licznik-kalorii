@@ -734,6 +734,17 @@
 
   // Start aplikacji
   loadMealsForDate(currentDate);
+
+  // Automatyczne sprawdzanie zmiany dnia co minutę
+setInterval(() => {
+  const today = formatDate(new Date());
+  // Jeśli data systemowa zmieniła się w trakcie otwartej sesji
+  if (today !== currentDate) {
+    currentDate = today;
+    dateInput.value = currentDate;
+    loadMealsForDate(currentDate); // Automatycznie przełącza na nowy dzień
+  }
+}, 60000); // Sprawdza co 60 sekund
 </script>
 
 </body>
