@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Licznik Kalorii, Makroskładników i Wody</title>
   
-  <!-- Biblioteka Chart.js do wykresu wagi -->
+  <!-- Biblioteka Chart.js do wykresów -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Biblioteka do skanowania kodów kreskowych -->
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -144,11 +144,7 @@
       background-color: var(--water-color);
     }
 
-    .btn-secondary {
-      background-color: #757575;
-    }
-
-    input[type="date"], input[type="text"], input[type="number"], select {
+    input[type="date"], input[type="text"], input[type="number"], input[type="password"], select {
       background-color: var(--input-bg);
       color: var(--text-color);
       border: 1px solid var(--border-color);
@@ -159,7 +155,7 @@
       box-sizing: border-box;
     }
 
-    /* Paski postępu makro i wody */
+    /* Paski postępu */
     .macro-bar-container {
       margin-bottom: 12px;
     }
@@ -189,7 +185,7 @@
       background-color: var(--water-color);
     }
 
-    /* Zakładki dla Wyszukiwania / Szybkiego Dodawania */
+    /* Zakładki */
     .tab-buttons {
       display: flex;
       gap: 10px;
@@ -220,7 +216,7 @@
       display: block;
     }
 
-    /* Lista produktów w posiłku */
+    /* Lista produktów */
     .meal-section {
       margin-top: 15px;
     }
@@ -282,6 +278,37 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+
+    /* Sekcja Statystyk */
+    .pin-lock-box {
+      text-align: center;
+      padding: 20px;
+      background-color: var(--input-bg);
+      border-radius: 8px;
+      border: 1px dashed var(--border-color);
+    }
+
+    .stats-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+      text-align: center;
+    }
+
+    .stats-card {
+      background-color: var(--input-bg);
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .chart-container {
+      position: relative;
+      height: 280px;
+      width: 100%;
+      margin-top: 15px;
     }
   </style>
 </head>
@@ -453,6 +480,70 @@
     </div>
   </div>
 
+  <!-- ZAKŁADKA STATYSTYK -->
+  <div class="card">
+    <h2>📊 Statystyki Spożycia</h2>
+    <div class="tab-buttons">
+      <button id="tabWeeklyBtn" class="tab-btn active">Tygodniowe (7 dni)</button>
+      <button id="tabMonthlyBtn" class="tab-btn">Miesięczne (30 dni) 🔒</button>
+    </div>
+
+    <!-- Widok Tygodniowy -->
+    <div id="tabWeekly" class="tab-content active">
+      <div class="chart-container">
+        <canvas id="weeklyChart"></canvas>
+      </div>
+      <div class="stats-summary">
+        <div class="stats-card">
+          <small>Średnia Kalorii</small>
+          <h4 id="weeklyAvgCal" style="margin: 5px 0 0 0;">0 kcal</h4>
+        </div>
+        <div class="stats-card">
+          <small>Średnia Białka</small>
+          <h4 id="weeklyAvgProtein" style="margin: 5px 0 0 0;">0 g</h4>
+        </div>
+        <div class="stats-card">
+          <small>Średnia Wody</small>
+          <h4 id="weeklyAvgWater" style="margin: 5px 0 0 0;">0 ml</h4>
+        </div>
+      </div>
+    </div>
+
+    <!-- Widok Miesięczny (Chroniony Kodem) -->
+    <div id="tabMonthly" class="tab-content">
+      <!-- Formularz podania PIN-u -->
+      <div id="pinBox" class="pin-lock-box">
+        <h3>🔒 Wymagany Kod Administratora</h3>
+        <p style="font-size: 0.9em; margin-bottom: 15px;">Wpisz kod PIN, aby uzyskać dostęp do statystyk z ostatnich 30 dni.</p>
+        <div style="max-width: 200px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px;">
+          <input type="password" id="adminPinInput" placeholder="Kod PIN" maxlength="4" style="text-align: center; font-size: 1.2rem;">
+          <button id="unlockMonthlyBtn">Odblokuj Widok</button>
+        </div>
+      </div>
+
+      <!-- Zawartość po odblokowaniu -->
+      <div id="monthlyContent" style="display: none;">
+        <div class="chart-container">
+          <canvas id="monthlyChart"></canvas>
+        </div>
+        <div class="stats-summary">
+          <div class="stats-card">
+            <small>Średnia Kalorii</small>
+            <h4 id="monthlyAvgCal" style="margin: 5px 0 0 0;">0 kcal</h4>
+          </div>
+          <div class="stats-card">
+            <small>Średnia Białka</small>
+            <h4 id="monthlyAvgProtein" style="margin: 5px 0 0 0;">0 g</h4>
+          </div>
+          <div class="stats-card">
+            <small>Średnia Wody</small>
+            <h4 id="monthlyAvgWater" style="margin: 5px 0 0 0;">0 ml</h4>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Wykres Wagi -->
   <div class="card">
     <h3>Śledzenie Wagi</h3>
@@ -494,6 +585,10 @@
   let meals = { breakfast: [], lunch: [], dinner: [], snacks: [] };
   let waterIntake = 0;
 
+  // Wykresy Statystyk
+  let weeklyChartObj = null;
+  let monthlyChartObj = null;
+
   // --- OBSŁUGA KALKULATORA W ZĘBATCE ---
   const settingsBtn = document.getElementById('settingsBtn');
   const calculatorModal = document.getElementById('calculatorModal');
@@ -529,10 +624,12 @@
     renderMeals();
     updateSummary();
     updateWaterUI();
+    renderWeeklyStats();
   }
 
   function saveMeals() {
     localStorage.setItem(`meals_${currentDate}`, JSON.stringify(meals));
+    renderWeeklyStats();
   }
 
   // --- AUTOMATYCZNE PRZEJŚCIE PO PÓŁNOCY ---
@@ -598,6 +695,166 @@
     tabSearch.classList.remove('active');
   });
 
+  // --- ZAKŁADKI STATYSTYK (Tygodniowe / Miesięczne) ---
+  const tabWeeklyBtn = document.getElementById('tabWeeklyBtn');
+  const tabMonthlyBtn = document.getElementById('tabMonthlyBtn');
+  const tabWeekly = document.getElementById('tabWeekly');
+  const tabMonthly = document.getElementById('tabMonthly');
+
+  tabWeeklyBtn.addEventListener('click', () => {
+    tabWeeklyBtn.classList.add('active');
+    tabMonthlyBtn.classList.remove('active');
+    tabWeekly.classList.add('active');
+    tabMonthly.classList.remove('active');
+
+    // Wymuszenie ponownej blokady miesięcznej przy opuszczeniu zakładki
+    lockMonthlyStats();
+  });
+
+  tabMonthlyBtn.addEventListener('click', () => {
+    tabMonthlyBtn.classList.add('active');
+    tabWeeklyBtn.classList.remove('active');
+    tabMonthly.classList.add('active');
+    tabWeekly.classList.remove('active');
+  });
+
+  // LOGIKA BLOKADY I KODU PIN
+  function lockMonthlyStats() {
+    document.getElementById('pinBox').style.display = 'block';
+    document.getElementById('monthlyContent').style.display = 'none';
+    document.getElementById('adminPinInput').value = '';
+  }
+
+  document.getElementById('unlockMonthlyBtn').addEventListener('click', () => {
+    const inputPin = document.getElementById('adminPinInput').value.trim();
+    if (inputPin === '1234') {
+      document.getElementById('pinBox').style.display = 'none';
+      document.getElementById('monthlyContent').style.display = 'block';
+      renderMonthlyStats();
+    } else {
+      alert('Niepoprawny kod PIN!');
+      document.getElementById('adminPinInput').value = '';
+    }
+  });
+
+  // --- OBLICZANIE DANYCH DO STATYSTYK ---
+  function getHistoricalData(daysCount) {
+    const labels = [];
+    const caloriesData = [];
+    const proteinData = [];
+    const waterData = [];
+
+    const today = new Date(currentDate + 'T00:00:00');
+
+    for (let i = daysCount - 1; i >= 0; i--) {
+      let d = new Date(today);
+      d.setDate(d.getDate() - i);
+      let dateStr = formatDate(d);
+
+      // Etykieta (np. 28.07)
+      labels.push(`${d.getDate()}.${d.getMonth() + 1}`);
+
+      // Wczytanie posiłków
+      let dayMeals = JSON.parse(localStorage.getItem(`meals_${dateStr}`)) || { breakfast: [], lunch: [], dinner: [], snacks: [] };
+      let dayCal = 0;
+      let dayProtein = 0;
+
+      Object.keys(dayMeals).forEach(type => {
+        dayMeals[type].forEach(item => {
+          dayCal += item.cal || 0;
+          dayProtein += item.protein || 0;
+        });
+      });
+
+      // Wczytanie wody
+      let dayWater = parseInt(localStorage.getItem(`water_${dateStr}`)) || 0;
+
+      caloriesData.push(Math.round(dayCal));
+      proteinData.push(Math.round(dayProtein));
+      waterData.push(dayWater);
+    }
+
+    return { labels, caloriesData, proteinData, waterData };
+  }
+
+  function renderWeeklyStats() {
+    const data = getHistoricalData(7);
+
+    // Aktualizacja wykresu
+    const ctx = document.getElementById('weeklyChart').getContext('2d');
+    if (weeklyChartObj) weeklyChartObj.destroy();
+
+    weeklyChartObj = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Spożycie (kcal)',
+          data: data.caloriesData,
+          backgroundColor: '#4caf50',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    // Obliczenie średnich
+    const avgCal = Math.round(data.caloriesData.reduce((a, b) => a + b, 0) / 7);
+    const avgProtein = Math.round(data.proteinData.reduce((a, b) => a + b, 0) / 7);
+    const avgWater = Math.round(data.waterData.reduce((a, b) => a + b, 0) / 7);
+
+    document.getElementById('weeklyAvgCal').textContent = `${avgCal} kcal`;
+    document.getElementById('weeklyAvgProtein').textContent = `${avgProtein} g`;
+    document.getElementById('weeklyAvgWater').textContent = `${avgWater} ml`;
+  }
+
+  function renderMonthlyStats() {
+    const data = getHistoricalData(30);
+
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    if (monthlyChartObj) monthlyChartObj.destroy();
+
+    monthlyChartObj = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Spożycie (kcal)',
+          data: data.caloriesData,
+          backgroundColor: '#2196f3',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    const avgCal = Math.round(data.caloriesData.reduce((a, b) => a + b, 0) / 30);
+    const avgProtein = Math.round(data.proteinData.reduce((a, b) => a + b, 0) / 30);
+    const avgWater = Math.round(data.waterData.reduce((a, b) => a + b, 0) / 30);
+
+    document.getElementById('monthlyAvgCal').textContent = `${avgCal} kcal`;
+    document.getElementById('monthlyAvgProtein').textContent = `${avgProtein} g`;
+    document.getElementById('monthlyAvgWater').textContent = `${avgWater} ml`;
+  }
+
   // --- OBSŁUGA WODY ---
   function updateWaterUI() {
     const target = targets.water || 2500;
@@ -610,6 +867,7 @@
     waterIntake += amount;
     localStorage.setItem(`water_${currentDate}`, waterIntake);
     updateWaterUI();
+    renderWeeklyStats();
   }
 
   document.getElementById('addWater250').addEventListener('click', () => addWater(250));
@@ -618,6 +876,7 @@
     waterIntake = 0;
     localStorage.setItem(`water_${currentDate}`, waterIntake);
     updateWaterUI();
+    renderWeeklyStats();
   });
 
   // --- WYSZUKIWARKA I OPEN FOOD FACTS ---
@@ -672,7 +931,7 @@
     searchResults.appendChild(div);
   }
 
-  // --- DODAWANIE PRODUKTU (Wyszukanego) ---
+  // --- DODAWANIE PRODUKTU ---
   document.getElementById('addFoodBtn').addEventListener('click', () => {
     const weight = parseFloat(document.getElementById('weightInput').value);
     const mealType = document.getElementById('mealTypeSelect').value;
@@ -729,7 +988,6 @@
     renderMeals();
     updateSummary();
 
-    // Reset formularza
     document.getElementById('quickNameInput').value = '';
     document.getElementById('quickCalInput').value = '';
     document.getElementById('quickProteinInput').value = '';
@@ -865,8 +1123,8 @@
   });
 
   // --- WYKRES WAGI ---
-  const ctx = document.getElementById('weightChart').getContext('2d');
-  let weightChart = new Chart(ctx, {
+  const ctxWeight = document.getElementById('weightChart').getContext('2d');
+  let weightChart = new Chart(ctxWeight, {
     type: 'line',
     data: {
       labels: weightHistory.map(entry => entry.date),
