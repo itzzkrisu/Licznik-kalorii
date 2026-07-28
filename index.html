@@ -309,6 +309,44 @@
       height: 280px;
       width: 100%;
       margin-top: 15px;
+    } 
+
+    /* Przełącznik Wody */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--water-color);
+      transition: .4s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #e53935; /* Czerwony przy odejmowaniu */
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
     }
   </style>
 </head>
@@ -395,7 +433,7 @@
     </div>
   </div>
 
-  <!-- Nawodnienie Wody -->
+ <!-- Nawodnienie Wody -->
   <div class="card">
     <h3>Spożycie Wody 💧</h3>
     <div class="macro-bar-container">
@@ -404,10 +442,19 @@
       </div>
       <div class="progress-bar"><div id="waterFill" class="progress-fill progress-fill-water"></div></div>
     </div>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
-      <button id="addWater250" class="btn-water">+ 250 ml 🥤</button>
-      <button id="addWater500" class="btn-water">+ 500 ml 🍼</button>
-      <button id="resetWaterBtn" class="delete-btn">Reset</button>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; align-items: center;">
+      <button id="waterBtn250" class="btn-water">+ 250 ml 🥤</button>
+      <button id="waterBtn500" class="btn-water">+ 500 ml 🍼</button>
+      
+      <!-- Przełącznik -->
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 0.9em; font-weight: bold; color: var(--water-color);">Dodaj</span>
+        <label class="switch">
+          <input type="checkbox" id="waterToggle">
+          <span class="slider"></span>
+        </label>
+        <span style="font-size: 0.9em; font-weight: bold; color: #e53935;">Odejmij</span>
+      </div>
     </div>
   </div>
 
@@ -855,7 +902,7 @@
     document.getElementById('monthlyAvgWater').textContent = `${avgWater} ml`;
   }
 
-  // --- OBSŁUGA WODY ---
+ // --- OBSŁUGA WODY ---
   function updateWaterUI() {
     const target = targets.water || 2500;
     document.getElementById('waterVal').textContent = waterIntake;
@@ -863,21 +910,43 @@
     document.getElementById('waterFill').style.width = `${Math.min(100, (waterIntake / target) * 100)}%`;
   }
 
-  function addWater(amount) {
-    waterIntake += amount;
+  const waterToggle = document.getElementById('waterToggle');
+  const waterBtn250 = document.getElementById('waterBtn250');
+  const waterBtn500 = document.getElementById('waterBtn500');
+  let isRemovingWater = false;
+
+  // Obsługa zmiany trybu na przełączniku
+  waterToggle.addEventListener('change', (e) => {
+    isRemovingWater = e.target.checked;
+    if (isRemovingWater) {
+      waterBtn250.textContent = '- 250 ml 🥤';
+      waterBtn500.textContent = '- 500 ml 🍼';
+      waterBtn250.style.backgroundColor = '#e53935'; // Zmiana na czerwony
+      waterBtn500.style.backgroundColor = '#e53935';
+    } else {
+      waterBtn250.textContent = '+ 250 ml 🥤';
+      waterBtn500.textContent = '+ 500 ml 🍼';
+      waterBtn250.style.backgroundColor = 'var(--water-color)'; // Powrót do niebieskiego
+      waterBtn500.style.backgroundColor = 'var(--water-color)';
+    }
+  });
+
+  // Główna funkcja modyfikująca stan wody
+  function modifyWater(amount) {
+    if (isRemovingWater) {
+      // Zabezpieczenie przed ujemną wartością wody
+      waterIntake = Math.max(0, waterIntake - amount);
+    } else {
+      waterIntake += amount;
+    }
     localStorage.setItem(`water_${currentDate}`, waterIntake);
     updateWaterUI();
-    renderWeeklyStats();
+    // Funkcja renderująca tygodniowe statystyki z pierwszego pliku
+    if (typeof renderWeeklyStats === "function") renderWeeklyStats(); 
   }
 
-  document.getElementById('addWater250').addEventListener('click', () => addWater(250));
-  document.getElementById('addWater500').addEventListener('click', () => addWater(500));
-  document.getElementById('resetWaterBtn').addEventListener('click', () => {
-    waterIntake = 0;
-    localStorage.setItem(`water_${currentDate}`, waterIntake);
-    updateWaterUI();
-    renderWeeklyStats();
-  });
+  waterBtn250.addEventListener('click', () => modifyWater(250));
+  waterBtn500.addEventListener('click', () => modifyWater(500));
 
   // --- WYSZUKIWARKA I OPEN FOOD FACTS ---
   const searchInput = document.getElementById('searchInput');
