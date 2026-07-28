@@ -18,6 +18,7 @@
       --accent-color: #4caf50;
       --border-color: #e0e0e0;
       --input-bg: #ffffff;
+      --modal-overlay: rgba(0, 0, 0, 0.5);
     }
 
     body.dark-mode {
@@ -27,6 +28,7 @@
       --accent-color: #81c784;
       --border-color: #333333;
       --input-bg: #2a2a2a;
+      --modal-overlay: rgba(0, 0, 0, 0.7);
     }
 
     body {
@@ -50,6 +52,28 @@
       margin-bottom: 20px;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+    }
+
+    .icon-btn {
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      font-size: 1.2rem;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .icon-btn:hover {
+      background-color: var(--border-color);
+    }
+
     .card {
       background-color: var(--card-bg);
       border-radius: 12px;
@@ -57,6 +81,37 @@
       margin-bottom: 20px;
       box-shadow: 0 4px 6px rgba(0,0,0,0.05);
       border: 1px solid var(--border-color);
+    }
+
+    /* Okno Popover dla Kalkulatora */
+    .calculator-modal {
+      display: none;
+      position: absolute;
+      top: 50px;
+      right: 0;
+      width: 320px;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+
+    .calculator-modal.active {
+      display: block;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0;
     }
 
     /* Nawigacja Daty */
@@ -90,6 +145,8 @@
       padding: 8px 12px;
       border-radius: 6px;
       outline: none;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     /* Paski postępu makro */
@@ -171,9 +228,15 @@
 
     .grid-form {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
       gap: 10px;
       margin-top: 10px;
+    }
+
+    .vertical-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
   </style>
 </head>
@@ -183,13 +246,47 @@
   
   <header>
     <h1>Dziennik Diety</h1>
-    <button id="themeToggleBtn">Tryb Ciemny</button>
+    <div class="header-actions">
+      <!-- Przycisk Zębatki -->
+      <button id="settingsBtn" class="icon-btn" title="Kalkulator zapotrzebowania">⚙️</button>
+      <!-- Przełącznik trybu -->
+      <button id="themeToggleBtn">Tryb Ciemny</button>
+
+      <!-- Ukryty Kalkulator Zapotrzebowania -->
+      <div id="calculatorModal" class="card calculator-modal">
+        <div class="modal-header">
+          <h3 style="margin: 0;">Kalkulator BMR / TDEE</h3>
+          <button id="closeCalcBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="vertical-form">
+          <input type="number" id="calcAge" placeholder="Wiek">
+          <input type="number" id="calcWeight" placeholder="Waga (kg)">
+          <input type="number" id="calcHeight" placeholder="Wzrost (cm)">
+          <select id="calcGender">
+            <option value="male">Mężczyzna</option>
+            <option value="female">Kobieta</option>
+          </select>
+          <select id="calcActivity">
+            <option value="1.2">Niska aktywność</option>
+            <option value="1.375">Umiarkowana (1-3 treningi)</option>
+            <option value="1.55">Średnia (3-5 treningów)</option>
+            <option value="1.725">Wysoka (codziennie)</option>
+          </select>
+          <select id="calcGoal">
+            <option value="maintain">Utrzymanie</option>
+            <option value="cut">Redukcja (-15%)</option>
+            <option value="bulk">Masa (+15%)</option>
+          </select>
+          <button id="calculateBmrBtn" style="width: 100%;">Oblicz i Zapisz Cele</button>
+        </div>
+      </div>
+    </div>
   </header>
 
   <!-- Pasek Nawigacji Daty -->
   <div class="card date-nav">
     <button id="prevDayBtn">&larr; Poprzedni</button>
-    <input type="date" id="selectedDateInput">
+    <input type="date" id="selectedDateInput" style="width: auto;">
     <button id="nextDayBtn">Następny &rarr;</button>
     <button id="todayBtn">Dzisiaj</button>
   </div>
@@ -230,8 +327,8 @@
   <div class="card">
     <h3>Dodaj Produkt</h3>
     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-      <input type="text" id="searchInput" placeholder="Szukaj produktu (np. Jabłko, Kurczak)..." style="flex: 1;">
-      <button id="scanBtn">📷 Skaner</button>
+      <input type="text" id="searchInput" placeholder="Szukaj produktu (np. Jabłko, Kurczak)...">
+      <button id="scanBtn" style="white-space: nowrap;">📷 Skaner</button>
     </div>
 
     <div id="reader"></div>
@@ -270,38 +367,12 @@
     </div>
   </div>
 
-  <!-- Kalkulator BMR/TDEE -->
-  <div class="card">
-    <h3>Kalkulator Zapotrzebowania (BMR / TDEE)</h3>
-    <div class="grid-form">
-      <input type="number" id="calcAge" placeholder="Wiek">
-      <input type="number" id="calcWeight" placeholder="Waga (kg)">
-      <input type="number" id="calcHeight" placeholder="Wzrost (cm)">
-      <select id="calcGender">
-        <option value="male">Mężczyzna</option>
-        <option value="female">Kobieta</option>
-      </select>
-      <select id="calcActivity">
-        <option value="1.2">Niska aktywność</option>
-        <option value="1.375">Umiarkowana (1-3 treningi)</option>
-        <option value="1.55">Średnia (3-5 treningów)</option>
-        <option value="1.725">Wysoka (codziennie)</option>
-      </select>
-      <select id="calcGoal">
-        <option value="maintain">Utrzymanie</option>
-        <option value="cut">Redukcja (-15%)</option>
-        <option value="bulk">Masa (+15%)</option>
-      </select>
-    </div>
-    <button id="calculateBmrBtn" style="margin-top: 10px; width: 100%;">Oblicz i Zapisz Cele</button>
-  </div>
-
   <!-- Wykres Wagi -->
   <div class="card">
     <h3>Śledzenie Wagi</h3>
     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
       <input type="number" id="weightTrackerInput" placeholder="Aktualna waga (kg)">
-      <button id="addWeightLogBtn">Zapisz Pomiar</button>
+      <button id="addWeightLogBtn" style="white-space: nowrap;">Zapisz Pomiar</button>
     </div>
     <canvas id="weightChart"></canvas>
   </div>
@@ -336,6 +407,27 @@
 
   let currentDate = formatDate(new Date());
   let meals = { breakfast: [], lunch: [], dinner: [], snacks: [] };
+
+  // --- OBSŁUGĄ KALKULATORA W ZĘBATCE ---
+  const settingsBtn = document.getElementById('settingsBtn');
+  const calculatorModal = document.getElementById('calculatorModal');
+  const closeCalcBtn = document.getElementById('closeCalcBtn');
+
+  settingsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    calculatorModal.classList.toggle('active');
+  });
+
+  closeCalcBtn.addEventListener('click', () => {
+    calculatorModal.classList.remove('active');
+  });
+
+  // Zamknij okienko przy kliknięciu poza nim
+  document.addEventListener('click', (e) => {
+    if (!calculatorModal.contains(e.target) && e.target !== settingsBtn) {
+      calculatorModal.classList.remove('active');
+    }
+  });
 
   // --- WCZYTYWANIE I ZAPIS DANYCH DLA DANEJ DATY ---
   function loadMealsForDate(dateStr) {
@@ -557,6 +649,7 @@
 
     localStorage.setItem('user_targets', JSON.stringify(targets));
     updateSummary();
+    calculatorModal.classList.remove('active');
     alert(`Obliczono cele: ${calTarget} kcal dziennie!`);
   });
 
@@ -579,7 +672,7 @@
           if (data.status === 1) {
             const p = data.product;
             selectedFood = {
-              name: p.product_name || "Produkty ze skanera",
+              name: p.product_name || "Produkt ze skanera",
               cal: p.nutriments['energy-kcal_100g'] || 0,
               protein: p.nutriments.proteins_100g || 0,
               carbs: p.nutriments.carbohydrates_100g || 0,
@@ -639,7 +732,7 @@
     themeBtn.textContent = 'Tryb Jasny';
   }
 
-  // Startup
+  // Start aplikacji
   loadMealsForDate(currentDate);
 </script>
 
