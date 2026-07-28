@@ -2,922 +2,444 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mój Licznik Kalorii</title>
-  <!-- Chart.js do wykresu -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Licznik Kalorii & Wagi</title>
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Skaner kodów kreskowych HTML5-QRCode -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <style>
     :root {
-      --bg-color: #f4f6f8;
-      --card-bg: #ffffff;
-      --primary: #22c55e;
-      --primary-dark: #16a34a;
-      --text-main: #1e293b;
-      --text-muted: #64748b;
-      --border-color: #e2e8f0;
-      
-      --carbs-color: #3b82f6;
-      --protein-color: #ef4444;
-      --fat-color: #eab308;
+      --bg-primary: #f4f6f9;
+      --bg-card: #ffffff;
+      --text-main: #1f2937;
+      --text-muted: #6b7280;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --border: #e5e7eb;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
     [data-theme="dark"] {
-      --bg-color: #0f172a;
-      --card-bg: #1e293b;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --border-color: #334155;
+      --bg-primary: #111827;
+      --bg-card: #1f2937;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --accent: #10b981;
+      --accent-hover: #34d399;
+      --border: #374151;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg-primary); color: var(--text-main); padding: 15px; transition: all 0.3s ease; }
+    .container { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    
+    header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
+    h1 { font-size: 1.5rem; font-weight: 700; }
+    .theme-btn { background: none; border: 1px solid var(--border); color: var(--text-main); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
 
-    body {
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      display: flex;
-      justify-content: center;
-      min-height: 100vh;
-      padding-bottom: 30px;
-      transition: background-color 0.3s ease, color 0.3s ease;
-    }
+    .card { background: var(--bg-card); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+    .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; color: var(--text-main); }
 
-    .app-container {
-      width: 100%;
-      max-width: 480px;
-      padding: 16px;
-    }
+    .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center; }
+    .summary-box { padding: 10px; background: var(--bg-primary); border-radius: 8px; }
+    .summary-box span { display: block; font-size: 0.8rem; color: var(--text-muted); }
+    .summary-box strong { font-size: 1.2rem; color: var(--accent); }
 
-    /* Header Controls */
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
+    .meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 15px; }
+    .meal-header h3 { font-size: 1rem; }
+    .add-btn { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+    
+    .food-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .food-item { display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; }
+    .food-info span { font-size: 0.75rem; color: var(--text-muted); display: block; }
+    .delete-btn { color: #ef4444; background: none; border: none; font-size: 1.1rem; cursor: pointer; }
 
-    .app-title {
-      font-size: 20px;
-      font-weight: 800;
-    }
+    /* Modal Styling */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--bg-card); width: 90%; max-width: 450px; padding: 20px; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
+    .modal-content h3 { margin-bottom: 15px; }
 
-    .header-actions {
-      display: flex;
-      gap: 8px;
-    }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.85rem; margin-bottom: 4px; color: var(--text-muted); }
+    .form-group input, .form-group select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-main); }
 
-    .icon-btn, .settings-btn {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      padding: 8px 12px;
-      border-radius: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      color: var(--text-main);
-    }
+    .scanner-btn { width: 100%; background: #3b82f6; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+    #interactive { width: 100%; margin-bottom: 15px; border-radius: 8px; overflow: hidden; display: none; }
 
-    /* Calorie Header Card */
-    .summary-card {
-      background: var(--card-bg);
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-      margin-bottom: 16px;
-    }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
+    .cancel-btn { background: var(--border); color: var(--text-main); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
 
-    .summary-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 12px;
-    }
-
-    .summary-title {
-      font-size: 14px;
-      color: var(--text-muted);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .calorie-digits {
-      font-size: 28px;
-      font-weight: 800;
-      color: var(--text-main);
-    }
-
-    .calorie-digits span {
-      font-size: 16px;
-      font-weight: 500;
-      color: var(--text-muted);
-    }
-
-    /* Progress Bar */
-    .progress-bar-bg {
-      width: 100%;
-      height: 12px;
-      background-color: var(--border-color);
-      border-radius: 6px;
-      overflow: hidden;
-      margin-bottom: 20px;
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      background-color: var(--primary);
-      width: 0%;
-      border-radius: 6px;
-      transition: width 0.3s ease;
-    }
-
-    /* Macros Breakdown */
-    .macros-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 12px;
-    }
-
-    .macro-item {
-      background: var(--bg-color);
-      padding: 10px;
-      border-radius: 10px;
-      text-align: center;
-    }
-
-    .macro-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-
-    .macro-value {
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .macro-bar {
-      height: 4px;
-      border-radius: 2px;
-      margin-top: 6px;
-      background: var(--border-color);
-      overflow: hidden;
-    }
-
-    .macro-fill {
-      height: 100%;
-      width: 0%;
-    }
-
-    /* Meal Sections */
-    .meal-section {
-      background: var(--card-bg);
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    }
-
-    .meal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .meal-title {
-      font-size: 16px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .meal-calories {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    .food-list {
-      list-style: none;
-    }
-
-    .food-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-top: 1px solid var(--border-color);
-      font-size: 14px;
-    }
-
-    .food-info {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .food-name {
-      font-weight: 600;
-    }
-
-    .food-details {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    .delete-btn {
-      background: none;
-      border: none;
-      color: #ef4444;
-      font-weight: bold;
-      font-size: 16px;
-      cursor: pointer;
-      padding: 4px 8px;
-    }
-
-    .add-food-btn {
-      width: 100%;
-      margin-top: 10px;
-      padding: 8px;
-      background: var(--bg-color);
-      border: 1px dashed var(--border-color);
-      border-radius: 8px;
-      color: var(--primary);
-      font-weight: 600;
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    /* Weight Log Section */
-    .weight-card {
-      background: var(--card-bg);
-      border-radius: 16px;
-      padding: 16px;
-      margin-top: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    }
-
-    .weight-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-
-    .weight-title {
-      font-size: 16px;
-      font-weight: 700;
-    }
-
-    .weight-target-badge {
-      font-size: 12px;
-      background: var(--bg-color);
-      padding: 4px 8px;
-      border-radius: 6px;
-      color: var(--text-muted);
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .weight-input-group {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .weight-input-group input, .form-group input, .form-group select {
-      flex: 1;
-      padding: 10px;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      font-size: 14px;
-      background: var(--bg-color);
-      color: var(--text-main);
-      width: 100%;
-    }
-
-    .weight-input-group button {
-      padding: 10px 16px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .chart-container {
-      position: relative;
-      width: 100%;
-      height: 180px;
-      margin-bottom: 16px;
-    }
-
-    .weight-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-
-    .weight-table th, .weight-table td {
-      padding: 8px;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .weight-table th {
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: 12px;
-    }
-
-    /* Modal / Form */
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.6);
-      justify-content: center;
-      align-items: flex-end;
-      z-index: 100;
-    }
-
-    .modal-content {
-      background: var(--card-bg);
-      width: 100%;
-      max-width: 480px;
-      border-radius: 20px 20px 0 0;
-      padding: 24px;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal-title {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-
-    .preset-box {
-      background: var(--bg-color);
-      padding: 12px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      border: 1px solid var(--border-color);
-    }
-
-    .preset-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--primary);
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-
-    .form-group {
-      margin-bottom: 12px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .btn {
-      flex: 1;
-      padding: 12px;
-      border: none;
-      border-radius: 10px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-
-    .btn-secondary {
-      background: var(--border-color);
-      color: var(--text-main);
-    }
+    /* Weight Form */
+    .weight-form { display: flex; gap: 10px; margin-bottom: 15px; }
+    .weight-form input { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-main); }
   </style>
 </head>
 <body>
 
-<div class="app-container">
-  <div class="top-bar">
-    <div class="app-title">Licznik Kalorii</div>
-    <div class="header-actions">
-      <button class="icon-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
-      <button class="settings-btn" onclick="openGoalsModal()">⚙️ Cele</button>
-    </div>
-  </div>
+<div class="container">
+  <header>
+    <h1>Licznik Kalorii</h1>
+    <button class="theme-btn" id="themeToggle">🌙 Tryb</button>
+  </header>
 
-  <!-- Calorie Summary Card -->
-  <div class="summary-card">
-    <div class="summary-header">
-      <span class="summary-title">Podsumowanie dnia</span>
-      <div class="calorie-digits" id="calorieDigits">0 <span>/ 2000 kcal</span></div>
-    </div>
-
-    <div class="progress-bar-bg">
-      <div class="progress-bar-fill" id="calorieProgress"></div>
-    </div>
-
-    <div class="macros-grid">
-      <div class="macro-item">
-        <div class="macro-name">Białko</div>
-        <div class="macro-value" id="proteinVal">0 / 150g</div>
-        <div class="macro-bar"><div class="macro-fill" id="proteinFill" style="background: var(--protein-color);"></div></div>
+  <!-- Podsumowanie dnia -->
+  <section class="card">
+    <div class="card-title">Dzisiejsze podsumowanie</div>
+    <div class="summary-grid">
+      <div class="summary-box">
+        <span>Kalorie</span>
+        <strong id="totalKcal">0 / 2000 kcal</strong>
       </div>
-      <div class="macro-item">
-        <div class="macro-name">Węgle</div>
-        <div class="macro-value" id="carbsVal">0 / 250g</div>
-        <div class="macro-bar"><div class="macro-fill" id="carbsFill" style="background: var(--carbs-color);"></div></div>
+      <div class="summary-box">
+        <span>Białko</span>
+        <strong id="totalProtein">0g</strong>
       </div>
-      <div class="macro-item">
-        <div class="macro-name">Tłuszcze</div>
-        <div class="macro-value" id="fatVal">0 / 65g</div>
-        <div class="macro-bar"><div class="macro-fill" id="fatFill" style="background: var(--fat-color);"></div></div>
+      <div class="summary-box">
+        <span>Węglowodany</span>
+        <strong id="totalCarbs">0g</strong>
+      </div>
+      <div class="summary-box">
+        <span>Tłuszcze</span>
+        <strong id="totalFat">0g</strong>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Meals List -->
-  <div id="mealsContainer"></div>
-
-  <!-- Weight Tracker Section -->
-  <div class="weight-card">
-    <div class="weight-header">
-      <span class="weight-title">⚖️ Śledzenie wagi</span>
-      <span class="weight-target-badge" onclick="openTargetModal()" id="targetBadge">Cel: Nie ustawiono 🎯</span>
+  <!-- Posiłki -->
+  <section class="card">
+    <div class="card-title">Posiłki</div>
+    
+    <div class="meal-header">
+      <h3>🥣 Śniadanie</h3>
+      <button class="add-btn" onclick="openModal('breakfast')">+ Dodaj</button>
     </div>
+    <ul class="food-list" id="list-breakfast"></ul>
 
-    <div class="weight-input-group">
-      <input type="number" step="0.1" id="newWeightInput" placeholder="Wpisz wagę (kg)">
-      <button onclick="addWeightLog()">Zapisz</button>
+    <div class="meal-header">
+      <h3>🍲 Obiad</h3>
+      <button class="add-btn" onclick="openModal('lunch')">+ Dodaj</button>
     </div>
+    <ul class="food-list" id="list-lunch"></ul>
 
-    <div class="chart-container">
-      <canvas id="weightChart"></canvas>
+    <div class="meal-header">
+      <h3>🥗 Kolacja</h3>
+      <button class="add-btn" onclick="openModal('dinner')">+ Dodaj</button>
     </div>
+    <ul class="food-list" id="list-dinner"></ul>
 
-    <table class="weight-table">
-      <thead>
-        <tr>
-          <th>Data</th>
-          <th>Waga (kg)</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="weightTableBody"></tbody>
-    </table>
-  </div>
+    <div class="meal-header">
+      <h3>🍎 Przekąski</h3>
+      <button class="add-btn" onclick="openModal('snack')">+ Dodaj</button>
+    </div>
+    <ul class="food-list" id="list-snack"></ul>
+  </section>
+
+  <!-- Waga i Wykres -->
+  <section class="card">
+    <div class="card-title">Postęp Wagi</div>
+    <div class="weight-form">
+      <input type="number" step="0.1" id="weightInput" placeholder="Wpisz wagę (kg)">
+      <button class="add-btn" onclick="addWeight()">Zapisz</button>
+    </div>
+    <canvas id="weightChart"></canvas>
+  </section>
 </div>
 
-<!-- Add Food Modal -->
-<div class="modal" id="addModal">
+<!-- Modal Dodawania Produktu -->
+<div class="modal" id="foodModal">
   <div class="modal-content">
-    <div class="modal-title" id="modalTitle">Dodaj produkt</div>
+    <h3>Dodaj produkt</h3>
     
-    <!-- Gotowa baza produktów -->
-    <div class="preset-box">
-      <div class="preset-title">🔍 Wybierz z gotowej bazy</div>
-      <select id="presetSelect" onchange="selectPresetProduct()">
-        <option value="">-- Wybierz produkt z listy --</option>
+    <!-- Skaner kodów -->
+    <button class="scanner-btn" id="startScanBtn" onclick="toggleScanner()">📷 Skanuj kod kreskowy</button>
+    <div id="interactive"></div>
+
+    <div class="form-group">
+      <label>🔍 Wybierz z gotowej bazy</label>
+      <select id="presetSelect" onchange="applyPreset()">
+        <option value="">-- Wybierz produkt --</option>
       </select>
     </div>
 
-    <form id="foodForm" onsubmit="saveFood(event)">
-      <div class="form-group">
-        <label>Nazwa potrawy / produktu</label>
-        <input type="text" id="foodName" placeholder="np. Owsianka z borówkami" required>
-      </div>
+    <hr style="margin: 15px 0; border: 0; border-top: 1px solid var(--border);">
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Waga (g)</label>
-          <input type="number" id="foodWeight" placeholder="100" required oninput="calculatePreview()">
-        </div>
-        <div class="form-group">
-          <label>Kcal w 100g</label>
-          <input type="number" id="foodKcal100" placeholder="350" required oninput="calculatePreview()">
-        </div>
-      </div>
+    <div class="form-group">
+      <label>Nazwa produktu</label>
+      <input type="text" id="foodName" placeholder="np. Banan">
+    </div>
+    <div class="form-group">
+      <label>Waga (g)</label>
+      <input type="number" id="foodWeight" value="100">
+    </div>
+    <div class="form-group">
+      <label>Kalorie (kcal na 100g)</label>
+      <input type="number" id="foodKcal">
+    </div>
+    <div class="form-group">
+      <label>Białko (g na 100g)</label>
+      <input type="number" id="foodProtein" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>Węglowodany (g na 100g)</label>
+      <input type="number" id="foodCarbs" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>Tłuszcze (g na 100g)</label>
+      <input type="number" id="foodFat" step="0.1">
+    </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Białko w 100g</label>
-          <input type="number" step="0.1" id="foodP100" placeholder="12" oninput="calculatePreview()">
-        </div>
-        <div class="form-group">
-          <label>Węgle w 100g</label>
-          <input type="number" step="0.1" id="foodC100" placeholder="60" oninput="calculatePreview()">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Tłuszcz w 100g</label>
-        <input type="number" step="0.1" id="foodF100" placeholder="5" oninput="calculatePreview()">
-      </div>
-
-      <div style="background: var(--bg-color); padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; font-weight: 600;" id="calcPreview">
-        Wyliczone: 0 kcal | B: 0g | W: 0g | T: 0g
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('addModal')">Anuluj</button>
-        <button type="submit" class="btn btn-primary">Dodaj do posiłku</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Edit Goals Modal -->
-<div class="modal" id="goalsModal">
-  <div class="modal-content">
-    <div class="modal-title">Ustaw swoje cele dzienne</div>
-    <form id="goalsForm" onsubmit="saveGoals(event)">
-      <div class="form-group">
-        <label>Cel Kalorii (kcal)</label>
-        <input type="number" id="goalKcalInput" required>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Białko (g)</label>
-          <input type="number" id="goalPInput" required>
-        </div>
-        <div class="form-group">
-          <label>Węglowodany (g)</label>
-          <input type="number" id="goalCInput" required>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Tłuszcze (g)</label>
-        <input type="number" id="goalFInput" required>
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('goalsModal')">Anuluj</button>
-        <button type="submit" class="btn btn-primary">Zapisz cele</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Target Weight Modal -->
-<div class="modal" id="targetModal">
-  <div class="modal-content">
-    <div class="modal-title">Ustaw cel wagowy</div>
-    <form onsubmit="saveTargetWeight(event)">
-      <div class="form-group">
-        <label>Twoja docelowa waga (kg)</label>
-        <input type="number" step="0.1" id="targetWeightInput" placeholder="np. 80" required>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeModal('targetModal')">Anuluj</button>
-        <button type="submit" class="btn btn-primary">Zapisz cel</button>
-      </div>
-    </form>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeModal()">Anuluj</button>
+      <button class="add-btn" onclick="saveFood()">Dodaj do posiłku</button>
+    </div>
   </div>
 </div>
 
 <script>
-  let activeMealType = '';
-  let chartInstance = null;
-
-  // BAZA PODSTAWOWYCH PRODUKTÓW (na 100g)
+  // Predefiniowana baza produktów
   const defaultProducts = [
-    { name: "Jajko całe", kcal: 143, p: 12.6, c: 0.7, f: 9.5 },
-    { name: "Banan", kcal: 89, p: 1.1, c: 22.8, f: 0.3 },
-    { name: "Jabłko", kcal: 52, p: 0.3, c: 13.8, f: 0.2 },
-    { name: "Pierś z kurczaka (surowa)", kcal: 120, p: 21.5, c: 0, f: 2.6 },
-    { name: "Ryż biały (surowy)", kcal: 350, p: 6.7, c: 78, f: 0.7 },
-    { name: "Płatki owsiane", kcal: 366, p: 13.5, c: 58.7, f: 7.2 },
-    { name: "Twaróg półtłusty", kcal: 133, p: 18, c: 3.7, f: 4.7 },
-    { name: "Mleko 2%", kcal: 50, p: 3.4, c: 4.7, f: 2.0 },
-    { name: "Chleb pszenny / kajzerka", kcal: 265, p: 8.0, c: 51, f: 1.5 },
-    { name: "Chleb żytni razowy", kcal: 225, p: 6.0, c: 45, f: 1.7 },
-    { name: "Pomidor", kcal: 18, p: 0.9, c: 3.9, f: 0.2 },
-    { name: "Ogórek", kcal: 15, p: 0.7, c: 3.6, f: 0.1 },
-    { name: "Ziemniaki (surowe)", kcal: 77, p: 2.0, c: 17, f: 0.1 },
-    { name: "Oliwa z oliwek", kcal: 884, p: 0, c: 0, f: 100 },
-    { name: "Masło", kcal: 717, p: 0.9, c: 0.7, f: 81 },
-    { name: "Skyr naturalny", kcal: 66, p: 12, c: 4.0, f: 0.2 }
+    { name: "Jajko całe (1 szt ~50g)", kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 },
+    { name: "Banan", kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
+    { name: "Pierś z kurczaka", kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
+    { name: "Skyr naturalny", kcal: 66, protein: 12, carbs: 4, fat: 0 },
+    { name: "Płatki owsiane", kcal: 366, protein: 11.9, carbs: 69.3, fat: 7.2 },
+    { name: "Ryż biały (surowy)", kcal: 350, protein: 6.7, carbs: 78.9, fat: 0.7 },
+    { name: "Chleb pszenno-żytni", kcal: 247, protein: 8.8, carbs: 51.5, fat: 1.3 }
   ];
 
-  function populatePresetSelect() {
-    const select = document.getElementById('presetSelect');
-    select.innerHTML = '<option value="">-- Wybierz produkt z listy --</option>';
-    defaultProducts.sort((a, b) => a.name.localeCompare(b.name)).forEach((prod, index) => {
-      select.innerHTML += `<option value="${index}">${prod.name} (${prod.kcal} kcal/100g)</option>`;
+  let currentMeal = '';
+  let appData = JSON.parse(localStorage.getItem('calorieAppData')) || {
+    meals: { breakfast: [], lunch: [], dinner: [], snack: [] },
+    weights: []
+  };
+
+  let html5QrcodeScanner = null;
+
+  // Inicjalizacja
+  document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
+    populatePresets();
+    renderMeals();
+    initChart();
+  });
+
+  // Motyw Light/Dark
+  function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
     });
   }
 
-  function selectPresetProduct() {
+  // Wypełnij listę rozwijaną
+  function populatePresets() {
+    const select = document.getElementById('presetSelect');
+    select.innerHTML = '<option value="">-- Wybierz produkt --</option>';
+    defaultProducts.forEach((p, idx) => {
+      select.innerHTML += `<option value="${idx}">${p.name}</option>`;
+    });
+  }
+
+  function applyPreset() {
     const idx = document.getElementById('presetSelect').value;
     if (idx === "") return;
     const prod = defaultProducts[idx];
     document.getElementById('foodName').value = prod.name;
-    document.getElementById('foodKcal100').value = prod.kcal;
-    document.getElementById('foodP100').value = prod.p;
-    document.getElementById('foodC100').value = prod.c;
-    document.getElementById('foodF100').value = prod.f;
-    if (!document.getElementById('foodWeight').value) {
-      document.getElementById('foodWeight').value = 100;
+    document.getElementById('foodKcal').value = prod.kcal;
+    document.getElementById('foodProtein').value = prod.protein;
+    document.getElementById('foodCarbs').value = prod.carbs;
+    document.getElementById('foodFat').value = prod.fat;
+  }
+
+  // Modal
+  function openModal(meal) {
+    currentMeal = meal;
+    document.getElementById('foodModal').classList.add('active');
+  }
+
+  function closeModal() {
+    document.getElementById('foodModal').classList.remove('active');
+    stopScanner();
+    clearModalInputs();
+  }
+
+  function clearModalInputs() {
+    document.getElementById('foodName').value = '';
+    document.getElementById('foodWeight').value = '100';
+    document.getElementById('foodKcal').value = '';
+    document.getElementById('foodProtein').value = '';
+    document.getElementById('foodCarbs').value = '';
+    document.getElementById('foodFat').value = '';
+    document.getElementById('presetSelect').value = '';
+  }
+
+  // Obsidian / Open Food Facts Skaner Kodów
+  function toggleScanner() {
+    const scannerDiv = document.getElementById('interactive');
+    if (scannerDiv.style.display === 'block') {
+      stopScanner();
+    } else {
+      startScanner();
     }
-    calculatePreview();
   }
 
-  // Theme Toggle
-  let currentTheme = localStorage.getItem('my_fit_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', currentTheme);
+  function startScanner() {
+    const scannerDiv = document.getElementById('interactive');
+    scannerDiv.style.display = 'block';
+    document.getElementById('startScanBtn').innerText = '❌ Zamknij skaner';
 
-  function toggleTheme() {
-    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', currentTheme);
-    localStorage.setItem('my_fit_theme', currentTheme);
-    document.getElementById('themeBtn').innerText = currentTheme === 'light' ? '🌙' : '☀️';
-    renderChart();
-  }
-  document.getElementById('themeBtn').innerText = currentTheme === 'light' ? '🌙' : '☀️';
-
-  // Goals & Data
-  let userGoals = JSON.parse(localStorage.getItem('my_fit_goals')) || { kcal: 2200, p: 150, c: 250, f: 65 };
-  let targetWeight = localStorage.getItem('my_fit_target_weight') || null;
-
-  const mealTypes = [
-    { id: 'breakfast', name: 'Śniadanie', icon: '🥣' },
-    { id: 'lunch', name: 'Obiad', icon: '🥗' },
-    { id: 'dinner', name: 'Kolacja', icon: '🍽️' },
-    { id: 'snacks', name: 'Przekąski', icon: '🍎' }
-  ];
-
-  let appMeals = JSON.parse(localStorage.getItem('my_fit_meals')) || { breakfast: [], lunch: [], dinner: [], snacks: [] };
-  let weightHistory = JSON.parse(localStorage.getItem('my_fit_weight')) || [];
-
-  function saveAllData() {
-    localStorage.setItem('my_fit_goals', JSON.stringify(userGoals));
-    localStorage.setItem('my_fit_meals', JSON.stringify(appMeals));
-    localStorage.setItem('my_fit_weight', JSON.stringify(weightHistory));
-    if (targetWeight) localStorage.setItem('my_fit_target_weight', targetWeight);
-    render();
-  }
-
-  function openAddModal(mealId) {
-    activeMealType = mealId;
-    const meal = mealTypes.find(m => m.id === mealId);
-    document.getElementById('modalTitle').innerText = `Dodaj do: ${meal.name}`;
-    document.getElementById('foodForm').reset();
-    populatePresetSelect();
-    document.getElementById('calcPreview').innerText = "Wyliczone: 0 kcal | B: 0g | W: 0g | T: 0g";
-    document.getElementById('addModal').style.display = 'flex';
-  }
-
-  function openGoalsModal() {
-    document.getElementById('goalKcalInput').value = userGoals.kcal;
-    document.getElementById('goalPInput').value = userGoals.p;
-    document.getElementById('goalCInput').value = userGoals.c;
-    document.getElementById('goalFInput').value = userGoals.f;
-    document.getElementById('goalsModal').style.display = 'flex';
-  }
-
-  function openTargetModal() {
-    document.getElementById('targetWeightInput').value = targetWeight || '';
-    document.getElementById('targetModal').style.display = 'flex';
-  }
-
-  function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-  }
-
-  function saveGoals(e) {
-    e.preventDefault();
-    userGoals = {
-      kcal: parseInt(document.getElementById('goalKcalInput').value) || 2000,
-      p: parseInt(document.getElementById('goalPInput').value) || 150,
-      c: parseInt(document.getElementById('goalCInput').value) || 200,
-      f: parseInt(document.getElementById('goalFInput').value) || 60
-    };
-    saveAllData();
-    closeModal('goalsModal');
-  }
-
-  function saveTargetWeight(e) {
-    e.preventDefault();
-    targetWeight = parseFloat(document.getElementById('targetWeightInput').value) || null;
-    saveAllData();
-    closeModal('targetModal');
-  }
-
-  function calculatePreview() {
-    const weight = parseFloat(document.getElementById('foodWeight').value) || 0;
-    const kcal100 = parseFloat(document.getElementById('foodKcal100').value) || 0;
-    const p100 = parseFloat(document.getElementById('foodP100').value) || 0;
-    const c100 = parseFloat(document.getElementById('foodC100').value) || 0;
-    const f100 = parseFloat(document.getElementById('foodF100').value) || 0;
-
-    const kcal = Math.round((weight / 100) * kcal100);
-    const p = ((weight / 100) * p100).toFixed(1);
-    const c = ((weight / 100) * c100).toFixed(1);
-    const f = ((weight / 100) * f100).toFixed(1);
-
-    document.getElementById('calcPreview').innerText = `Wyliczone: ${kcal} kcal | B: ${p}g | W: ${c}g | T: ${f}g`;
-  }
-
-  function saveFood(e) {
-    e.preventDefault();
-    const weight = parseFloat(document.getElementById('foodWeight').value) || 0;
-    const kcal100 = parseFloat(document.getElementById('foodKcal100').value) || 0;
-    const p100 = parseFloat(document.getElementById('foodP100').value) || 0;
-    const c100 = parseFloat(document.getElementById('foodC100').value) || 0;
-    const f100 = parseFloat(document.getElementById('foodF100').value) || 0;
-
-    const newFood = {
-      id: Date.now(),
-      name: document.getElementById('foodName').value,
-      weight: weight,
-      kcal: Math.round((weight / 100) * kcal100),
-      p: parseFloat(((weight / 100) * p100).toFixed(1)),
-      c: parseFloat(((weight / 100) * c100).toFixed(1)),
-      f: parseFloat(((weight / 100) * f100).toFixed(1))
-    };
-
-    appMeals[activeMealType].push(newFood);
-    saveAllData();
-    closeModal('addModal');
-  }
-
-  function deleteFood(mealId, foodId) {
-    appMeals[mealId] = appMeals[mealId].filter(item => item.id !== foodId);
-    saveAllData();
-  }
-
-  function addWeightLog() {
-    const input = document.getElementById('newWeightInput');
-    const val = parseFloat(input.value);
-    if (!val) return;
-
-    const dateStr = new Date().toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
-    weightHistory.unshift({ id: Date.now(), date: dateStr, weight: val });
-    input.value = '';
-    saveAllData();
-  }
-
-  function deleteWeightLog(id) {
-    weightHistory = weightHistory.filter(item => item.id !== id);
-    saveAllData();
-  }
-
-  function renderChart() {
-    const ctx = document.getElementById('weightChart').getContext('2d');
-    const reversedHistory = [...weightHistory].reverse();
-    const labels = reversedHistory.map(item => item.date);
-    const data = reversedHistory.map(item => item.weight);
-
-    const isDark = currentTheme === 'dark';
-    const textColor = isDark ? '#94a3b8' : '#64748b';
-    const gridColor = isDark ? '#334155' : '#e2e8f0';
-
-    if (chartInstance) chartInstance.destroy();
-
-    chartInstance = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Waga (kg)',
-          data: data,
-          borderColor: '#22c55e',
-          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4
-        }]
+    html5QrcodeScanner = new Html5Qrcode("interactive");
+    html5QrcodeScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      (decodedText) => {
+        // Kod zeskanowany pomyślnie
+        stopScanner();
+        fetchProductFromOFF(decodedText);
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: textColor }, grid: { color: gridColor } },
-          y: { ticks: { color: textColor }, grid: { color: gridColor } }
-        }
-      }
+      () => {} // Ignoruj błędy szukania w każdej klatce
+    ).catch(err => {
+      alert("Nie udało się uruchomić aparatu. Upewnij się, że dałeś uprawnienia w przeglądarce!");
+      stopScanner();
     });
   }
 
-  function render() {
-    let totalKcal = 0, totalP = 0, totalC = 0, totalF = 0;
-    const container = document.getElementById('mealsContainer');
-    container.innerHTML = '';
+  function stopScanner() {
+    if (html5QrcodeScanner) {
+      html5QrcodeScanner.stop().then(() => {
+        html5QrcodeScanner = null;
+        document.getElementById('interactive').style.display = 'none';
+        document.getElementById('startScanBtn').innerText = '📷 Skanuj kod kreskowy';
+      }).catch(() => {});
+    }
+  }
 
-    mealTypes.forEach(meal => {
-      const items = appMeals[meal.id] || [];
-      let mealKcal = 0;
-      let itemsHtml = '';
+  // Pobieranie danych z Open Food Facts API
+  function fetchProductFromOFF(barcode) {
+    alert("Zeskanowano kod: " + barcode + ". Szukam w bazie...");
+    fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 1) {
+          const prod = data.product;
+          const nutriments = prod.nutriments;
 
-      items.forEach(item => {
-        mealKcal += item.kcal;
-        totalKcal += item.kcal;
-        totalP += item.p;
-        totalC += item.c;
-        totalF += item.f;
+          document.getElementById('foodName').value = prod.product_name_pl || prod.product_name || "Produkt z kodu";
+          document.getElementById('foodKcal').value = Math.round(nutriments['energy-kcal_100g'] || nutriments['energy-kcal'] || 0);
+          document.getElementById('foodProtein').value = Math.round((nutriments.proteins_100g || 0) * 10) / 10;
+          document.getElementById('foodCarbs').value = Math.round((nutriments.carbohydrates_100g || 0) * 10) / 10;
+          document.getElementById('foodFat').value = Math.round((nutriments.fat_100g || 0) * 10) / 10;
+        } else {
+          alert("Nie znaleziono produktu w bazie Open Food Facts.");
+        }
+      })
+      .catch(() => alert("Błąd podczas połączenia z bazą danych."));
+  }
 
-        itemsHtml += `
+  // Zapisywanie Produktu
+  function saveFood() {
+    const name = document.getElementById('foodName').value;
+    const weight = parseFloat(document.getElementById('foodWeight').value) || 100;
+    const kcal100 = parseFloat(document.getElementById('foodKcal').value) || 0;
+    const p100 = parseFloat(document.getElementById('foodProtein').value) || 0;
+    const c100 = parseFloat(document.getElementById('foodCarbs').value) || 0;
+    const f100 = parseFloat(document.getElementById('foodFat').value) || 0;
+
+    if (!name) return alert("Podaj nazwę produktu!");
+
+    const ratio = weight / 100;
+    const item = {
+      id: Date.now(),
+      name: `${name} (${weight}g)`,
+      kcal: Math.round(kcal100 * ratio),
+      protein: Math.round(p100 * ratio * 10) / 10,
+      carbs: Math.round(c100 * ratio * 10) / 10,
+      fat: Math.round(f100 * ratio * 10) / 10
+    };
+
+    appData.meals[currentMeal].push(item);
+    saveData();
+    renderMeals();
+    closeModal();
+  }
+
+  function deleteFood(meal, id) {
+    appData.meals[meal] = appData.meals[meal].filter(item => item.id !== id);
+    saveData();
+    renderMeals();
+  }
+
+  function renderMeals() {
+    let tKcal = 0, tP = 0, tC = 0, tF = 0;
+
+    ['breakfast', 'lunch', 'dinner', 'snack'].forEach(meal => {
+      const listEl = document.getElementById(`list-${meal}`);
+      listEl.innerHTML = '';
+      appData.meals[meal].forEach(item => {
+        tKcal += item.kcal;
+        tP += item.protein;
+        tC += item.carbs;
+        tF += item.fat;
+
+        listEl.innerHTML += `
           <li class="food-item">
             <div class="food-info">
-              <span class="food-name">${item.name}</span>
-              <span class="food-details">${item.weight}g • ${item.kcal} kcal (B: ${item.p}g W: ${item.c}g T: ${item.f}g)</span>
+              <strong>${item.name}</strong>
+              <span>${item.kcal} kcal | B: ${item.protein}g | W: ${item.carbs}g | T: ${item.fat}g</span>
             </div>
-            <button class="delete-btn" onclick="deleteFood('${meal.id}', ${item.id})">&times;</button>
+            <button class="delete-btn" onclick="deleteFood('${meal}', ${item.id})">🗑</button>
           </li>
         `;
       });
-
-      const mealSection = document.createElement('div');
-      mealSection.className = 'meal-section';
-      mealSection.innerHTML = `
-        <div class="meal-header">
-          <span class="meal-title"><span>${meal.icon}</span> ${meal.name}</span>
-          <span class="meal-calories">${mealKcal} kcal</span>
-        </div>
-        <ul class="food-list">${itemsHtml}</ul>
-        <button class="add-food-btn" onclick="openAddModal('${meal.id}')">+ Dodaj produkt</button>
-      `;
-      container.appendChild(mealSection);
     });
 
-    // Summary
-    document.getElementById('calorieDigits').innerHTML = `${totalKcal} <span>/ ${userGoals.kcal} kcal</span>`;
-    document.getElementById('calorieProgress').style.width = `${Math.min(100, Math.round((totalKcal / userGoals.kcal) * 100))}%`;
-
-    // Macros
-    document.getElementById('proteinVal').innerText = `${totalP.toFixed(1)} / ${userGoals.p}g`;
-    document.getElementById('proteinFill').style.width = `${Math.min(100, (totalP / userGoals.p) * 100)}%`;
-
-    document.getElementById('carbsVal').innerText = `${totalC.toFixed(1)} / ${userGoals.c}g`;
-    document.getElementById('carbsFill').style.width = `${Math.min(100, (totalC / userGoals.c) * 100)}%`;
-
-    document.getElementById('fatVal').innerText = `${totalF.toFixed(1)} / ${userGoals.f}g`;
-    document.getElementById('fatFill').style.width = `${Math.min(100, (totalF / userGoals.f) * 100)}%`;
-
-    // Target Weight Badge
-    const badge = document.getElementById('targetBadge');
-    if (targetWeight) {
-      const latestWeight = weightHistory.length > 0 ? weightHistory[0].weight : null;
-      if (latestWeight) {
-        const diff = (latestWeight - targetWeight).toFixed(1);
-        badge.innerText = `Cel: ${targetWeight} kg (${diff > 0 ? '+' + diff : diff} kg)`;
-      } else {
-        badge.innerText = `Cel: ${targetWeight} kg 🎯`;
-      }
-    } else {
-      badge.innerText = 'Cel: Ustaw 🎯';
-    }
-
-    // Weight Table
-    const tbody = document.getElementById('weightTableBody');
-    tbody.innerHTML = '';
-    weightHistory.forEach(item => {
-      tbody.innerHTML += `
-        <tr>
-          <td>${item.date}</td>
-          <td><b>${item.weight} kg</b></td>
-          <td><button class="delete-btn" onclick="deleteWeightLog(${item.id})">&times;</button></td>
-        </tr>
-      `;
-    });
-
-    renderChart();
+    document.getElementById('totalKcal').innerText = `${tKcal} / 2000 kcal`;
+    document.getElementById('totalProtein').innerText = `${tP.toFixed(1)}g`;
+    document.getElementById('totalCarbs').innerText = `${tC.toFixed(1)}g`;
+    document.getElementById('totalFat').innerText = `${tF.toFixed(1)}g`;
   }
 
-  render();
+  // Waga i Wykres
+  let chart;
+  function initChart() {
+    const ctx = document.getElementById('weightChart').getContext('2d');
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: appData.weights.map(w => w.date),
+        datasets: [{
+          label: 'Waga (kg)',
+          data: appData.weights.map(w => w.val),
+          borderColor: '#10b981',
+          tension: 0.2
+        }]
+      },
+      options: { responsive: true }
+    });
+  }
+
+  function addWeight() {
+    const val = parseFloat(document.getElementById('weightInput').value);
+    if (!val) return;
+    const date = new Date().toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
+    appData.weights.push({ date, val });
+    saveData();
+    chart.data.labels.push(date);
+    chart.data.datasets[0].data.push(val);
+    chart.update();
+    document.getElementById('weightInput').value = '';
+  }
+
+  function saveData() {
+    localStorage.setItem('calorieAppData', JSON.stringify(appData));
+  }
 </script>
 </body>
 </html>
