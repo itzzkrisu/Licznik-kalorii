@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Licznik Kalorii i Makroskładników</title>
+  <title>Licznik Kalorii, Makroskładników i Wody</title>
   
   <!-- Biblioteka Chart.js do wykresu wagi -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -16,6 +16,7 @@
       --card-bg: #ffffff;
       --text-color: #333333;
       --accent-color: #4caf50;
+      --water-color: #2196f3;
       --border-color: #e0e0e0;
       --input-bg: #ffffff;
       --modal-overlay: rgba(0, 0, 0, 0.5);
@@ -26,6 +27,7 @@
       --card-bg: #1e1e1e;
       --text-color: #e0e0e0;
       --accent-color: #81c784;
+      --water-color: #64b5f6;
       --border-color: #333333;
       --input-bg: #2a2a2a;
       --modal-overlay: rgba(0, 0, 0, 0.7);
@@ -138,6 +140,14 @@
       opacity: 0.9;
     }
 
+    .btn-water {
+      background-color: var(--water-color);
+    }
+
+    .btn-secondary {
+      background-color: #757575;
+    }
+
     input[type="date"], input[type="text"], input[type="number"], select {
       background-color: var(--input-bg);
       color: var(--text-color);
@@ -149,7 +159,7 @@
       box-sizing: border-box;
     }
 
-    /* Paski postępu makro */
+    /* Paski postępu makro i wody */
     .macro-bar-container {
       margin-bottom: 12px;
     }
@@ -173,6 +183,41 @@
       background-color: var(--accent-color);
       width: 0%;
       transition: width 0.3s ease;
+    }
+
+    .progress-fill-water {
+      background-color: var(--water-color);
+    }
+
+    /* Zakładki dla Wyszukiwania / Szybkiego Dodawania */
+    .tab-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .tab-btn {
+      background: none;
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 6px;
+    }
+
+    .tab-btn.active {
+      background-color: var(--accent-color);
+      color: white;
+      border-color: var(--accent-color);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
     }
 
     /* Lista produktów w posiłku */
@@ -323,26 +368,67 @@
     </div>
   </div>
 
-  <!-- Wyszukiwanie i Dodawanie Posiłków -->
+  <!-- Nawodnienie Wody -->
   <div class="card">
-    <h3>Dodaj Produkt</h3>
-    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-      <input type="text" id="searchInput" placeholder="Szukaj produktu (np. Jabłko, Kurczak)...">
-      <button id="scanBtn" style="white-space: nowrap;">📷 Skaner</button>
+    <h3>Spożycie Wody 💧</h3>
+    <div class="macro-bar-container">
+      <div class="macro-labels">
+        <span>Wypito: <span id="waterVal">0</span> / <span id="waterTarget">2500</span> ml</span>
+      </div>
+      <div class="progress-bar"><div id="waterFill" class="progress-fill progress-fill-water"></div></div>
+    </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;">
+      <button id="addWater250" class="btn-water">+ 250 ml 🥤</button>
+      <button id="addWater500" class="btn-water">+ 500 ml 🍼</button>
+      <button id="resetWaterBtn" class="delete-btn">Reset</button>
+    </div>
+  </div>
+
+  <!-- Dodawanie Posiłków (Wyszukiwanie / Szybkie Dodawanie) -->
+  <div class="card">
+    <div class="tab-buttons">
+      <button id="tabSearchBtn" class="tab-btn active">🔍 Szukaj Produktu</button>
+      <button id="tabQuickBtn" class="tab-btn">⚡ Szybkie Kalorie</button>
     </div>
 
-    <div id="reader"></div>
-    <div id="searchResults" class="search-results"></div>
+    <!-- Zakładka 1: Wyszukiwanie w bazie / skanowanie -->
+    <div id="tabSearch" class="tab-content active">
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <input type="text" id="searchInput" placeholder="Szukaj produktu (np. Jabłko, Kurczak)...">
+        <button id="scanBtn" style="white-space: nowrap;">📷 Skaner</button>
+      </div>
 
-    <div class="grid-form">
-      <select id="mealTypeSelect">
-        <option value="breakfast">Śniadanie</option>
-        <option value="lunch">Obiad</option>
-        <option value="dinner">Kolacja</option>
-        <option value="snacks">Przekąski</option>
-      </select>
-      <input type="number" id="weightInput" placeholder="Waga (g)" value="100">
-      <button id="addFoodBtn">Dodaj do Dnia</button>
+      <div id="reader"></div>
+      <div id="searchResults" class="search-results"></div>
+
+      <div class="grid-form">
+        <select id="mealTypeSelect">
+          <option value="breakfast">Śniadanie</option>
+          <option value="lunch">Obiad</option>
+          <option value="dinner">Kolacja</option>
+          <option value="snacks">Przekąski</option>
+        </select>
+        <input type="number" id="weightInput" placeholder="Waga (g)" value="100">
+        <button id="addFoodBtn">Dodaj do Dnia</button>
+      </div>
+    </div>
+
+    <!-- Zakładka 2: Szybkie Wpisywanie Kalorii -->
+    <div id="tabQuick" class="tab-content">
+      <div class="grid-form">
+        <input type="text" id="quickNameInput" placeholder="Nazwa (np. Obiad u Babci)">
+        <select id="quickMealTypeSelect">
+          <option value="breakfast">Śniadanie</option>
+          <option value="lunch">Obiad</option>
+          <option value="dinner">Kolacja</option>
+          <option value="snacks">Przekąski</option>
+        </select>
+        <input type="number" id="quickCalInput" placeholder="Kalorie (kcal)">
+        <input type="number" id="quickProteinInput" placeholder="Białko (g)">
+        <input type="number" id="quickCarbsInput" placeholder="Węglowodany (g)">
+        <input type="number" id="quickFatInput" placeholder="Tłuszcze (g)">
+      </div>
+      <button id="addQuickFoodBtn" style="width: 100%; margin-top: 10px;">Dodaj Szybki Posiłek</button>
     </div>
   </div>
 
@@ -394,10 +480,9 @@
 
   // --- ZMIENNE STANU ---
   let selectedFood = null;
-  let targets = JSON.parse(localStorage.getItem('user_targets')) || { cal: 2000, protein: 125, carbs: 250, fat: 55 };
+  let targets = JSON.parse(localStorage.getItem('user_targets')) || { cal: 2000, protein: 125, carbs: 250, fat: 55, water: 2500 };
   let weightHistory = JSON.parse(localStorage.getItem('weight_history')) || [];
   
-  // Formatowanie daty YYYY-MM-DD
   function formatDate(d) {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -407,8 +492,9 @@
 
   let currentDate = formatDate(new Date());
   let meals = { breakfast: [], lunch: [], dinner: [], snacks: [] };
+  let waterIntake = 0;
 
-  // --- OBSŁUGĄ KALKULATORA W ZĘBATCE ---
+  // --- OBSŁUGA KALKULATORA W ZĘBATCE ---
   const settingsBtn = document.getElementById('settingsBtn');
   const calculatorModal = document.getElementById('calculatorModal');
   const closeCalcBtn = document.getElementById('closeCalcBtn');
@@ -422,7 +508,6 @@
     calculatorModal.classList.remove('active');
   });
 
-  // Zamknij okienko przy kliknięciu poza nim
   document.addEventListener('click', (e) => {
     if (!calculatorModal.contains(e.target) && e.target !== settingsBtn) {
       calculatorModal.classList.remove('active');
@@ -437,13 +522,28 @@
     } else {
       meals = { breakfast: [], lunch: [], dinner: [], snacks: [] };
     }
+
+    const savedWater = localStorage.getItem(`water_${dateStr}`);
+    waterIntake = savedWater ? parseInt(savedWater) : 0;
+
     renderMeals();
     updateSummary();
+    updateWaterUI();
   }
 
   function saveMeals() {
     localStorage.setItem(`meals_${currentDate}`, JSON.stringify(meals));
   }
+
+  // --- AUTOMATYCZNE PRZEJŚCIE PO PÓŁNOCY ---
+  setInterval(() => {
+    const today = formatDate(new Date());
+    if (today !== currentDate) {
+      currentDate = today;
+      dateInput.value = currentDate;
+      loadMealsForDate(currentDate);
+    }
+  }, 60000);
 
   // --- NAWIGACJA DATĄ ---
   const dateInput = document.getElementById('selectedDateInput');
@@ -478,7 +578,49 @@
     loadMealsForDate(currentDate);
   });
 
-  // --- WYSZUKIWARKA I OFF API ---
+  // --- ZAKŁADKI (Wyszukiwanie / Szybkie Dodawanie) ---
+  const tabSearchBtn = document.getElementById('tabSearchBtn');
+  const tabQuickBtn = document.getElementById('tabQuickBtn');
+  const tabSearch = document.getElementById('tabSearch');
+  const tabQuick = document.getElementById('tabQuick');
+
+  tabSearchBtn.addEventListener('click', () => {
+    tabSearchBtn.classList.add('active');
+    tabQuickBtn.classList.remove('active');
+    tabSearch.classList.add('active');
+    tabQuick.classList.remove('active');
+  });
+
+  tabQuickBtn.addEventListener('click', () => {
+    tabQuickBtn.classList.add('active');
+    tabSearchBtn.classList.remove('active');
+    tabQuick.classList.add('active');
+    tabSearch.classList.remove('active');
+  });
+
+  // --- OBSŁUGA WODY ---
+  function updateWaterUI() {
+    const target = targets.water || 2500;
+    document.getElementById('waterVal').textContent = waterIntake;
+    document.getElementById('waterTarget').textContent = target;
+    document.getElementById('waterFill').style.width = `${Math.min(100, (waterIntake / target) * 100)}%`;
+  }
+
+  function addWater(amount) {
+    waterIntake += amount;
+    localStorage.setItem(`water_${currentDate}`, waterIntake);
+    updateWaterUI();
+  }
+
+  document.getElementById('addWater250').addEventListener('click', () => addWater(250));
+  document.getElementById('addWater500').addEventListener('click', () => addWater(500));
+  document.getElementById('resetWaterBtn').addEventListener('click', () => {
+    waterIntake = 0;
+    localStorage.setItem(`water_${currentDate}`, waterIntake);
+    updateWaterUI();
+  });
+
+  // --- WYSZUKIWARKA I OPEN FOOD FACTS ---
   const searchInput = document.getElementById('searchInput');
   const searchResults = document.getElementById('searchResults');
 
@@ -491,11 +633,9 @@
 
     searchResults.innerHTML = '';
     
-    // Szukaj lokalnie
     const localMatches = localDb.filter(f => f.name.toLowerCase().includes(query));
     localMatches.forEach(item => renderSearchResultItem(item));
 
-    // Szukaj z Open Food Facts API
     try {
       const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`);
       const data = await response.json();
@@ -514,7 +654,7 @@
         });
       }
     } catch (err) {
-      console.log('Błąd zapytania do Open Food Facts API', err);
+      console.log('Błąd zapytania do API', err);
     }
 
     searchResults.style.display = 'block';
@@ -532,7 +672,7 @@
     searchResults.appendChild(div);
   }
 
-  // --- DODAWANIE PRODUKTU ---
+  // --- DODAWANIE PRODUKTU (Wyszukanego) ---
   document.getElementById('addFoodBtn').addEventListener('click', () => {
     const weight = parseFloat(document.getElementById('weightInput').value);
     const mealType = document.getElementById('mealTypeSelect').value;
@@ -563,6 +703,40 @@
     selectedFood = null;
   });
 
+  // --- SZYBKIE DODAWANIE KALORII ---
+  document.getElementById('addQuickFoodBtn').addEventListener('click', () => {
+    const name = document.getElementById('quickNameInput').value.trim() || 'Szybki Posiłek';
+    const mealType = document.getElementById('quickMealTypeSelect').value;
+    const cal = parseFloat(document.getElementById('quickCalInput').value) || 0;
+    const protein = parseFloat(document.getElementById('quickProteinInput').value) || 0;
+    const carbs = parseFloat(document.getElementById('quickCarbsInput').value) || 0;
+    const fat = parseFloat(document.getElementById('quickFatInput').value) || 0;
+
+    if (cal === 0 && protein === 0 && carbs === 0 && fat === 0) return;
+
+    const quickFood = {
+      id: Date.now(),
+      name: name,
+      weight: '-',
+      cal: Math.round(cal),
+      protein: Math.round(protein * 10) / 10,
+      carbs: Math.round(carbs * 10) / 10,
+      fat: Math.round(fat * 10) / 10
+    };
+
+    meals[mealType].push(quickFood);
+    saveMeals();
+    renderMeals();
+    updateSummary();
+
+    // Reset formularza
+    document.getElementById('quickNameInput').value = '';
+    document.getElementById('quickCalInput').value = '';
+    document.getElementById('quickProteinInput').value = '';
+    document.getElementById('quickCarbsInput').value = '';
+    document.getElementById('quickFatInput').value = '';
+  });
+
   function deleteFood(mealType, id) {
     meals[mealType] = meals[mealType].filter(item => item.id !== id);
     saveMeals();
@@ -578,9 +752,10 @@
       meals[type].forEach(item => {
         const div = document.createElement('div');
         div.className = 'food-item';
+        const weightText = item.weight !== '-' ? `- ${item.weight}g` : '';
         div.innerHTML = `
           <div>
-            <strong>${item.name}</strong> - ${item.weight}g
+            <strong>${item.name}</strong> ${weightText}
             <br><small>${item.cal} kcal | B: ${item.protein}g | W: ${item.carbs}g | T: ${item.fat}g</small>
           </div>
           <button class="delete-btn" onclick="deleteFood('${type}', ${item.id})">X</button>
@@ -630,7 +805,6 @@
 
     if (!age || !weight || !height) return;
 
-    // Wzór Mifflina-St Jeora
     let bmr = (10 * weight) + (6.25 * height) - (5 * age);
     bmr += (gender === 'male') ? 5 : -161;
 
@@ -644,11 +818,13 @@
       cal: calTarget,
       protein: Math.round((calTarget * 0.25) / 4),
       carbs: Math.round((calTarget * 0.50) / 4),
-      fat: Math.round((calTarget * 0.25) / 9)
+      fat: Math.round((calTarget * 0.25) / 9),
+      water: targets.water || 2500
     };
 
     localStorage.setItem('user_targets', JSON.stringify(targets));
     updateSummary();
+    updateWaterUI();
     calculatorModal.classList.remove('active');
     alert(`Obliczono cele: ${calTarget} kcal dziennie!`);
   });
@@ -734,17 +910,6 @@
 
   // Start aplikacji
   loadMealsForDate(currentDate);
-
-  // Automatyczne sprawdzanie zmiany dnia co minutę
-setInterval(() => {
-  const today = formatDate(new Date());
-  // Jeśli data systemowa zmieniła się w trakcie otwartej sesji
-  if (today !== currentDate) {
-    currentDate = today;
-    dateInput.value = currentDate;
-    loadMealsForDate(currentDate); // Automatycznie przełącza na nowy dzień
-  }
-}, 60000); // Sprawdza co 60 sekund
 </script>
 
 </body>
