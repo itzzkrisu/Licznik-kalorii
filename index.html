@@ -40,16 +40,18 @@
     .theme-btn { background: none; border: 1px solid var(--border); color: var(--text-main); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
 
     .card { background: var(--bg-card); padding: 20px; border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--border); }
-    .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; color: var(--text-main); }
+    .card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-main); }
 
     .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center; }
     .summary-box { padding: 10px; background: var(--bg-primary); border-radius: 8px; }
     .summary-box span { display: block; font-size: 0.8rem; color: var(--text-muted); }
-    .summary-box strong { font-size: 1.2rem; color: var(--accent); }
+    .summary-box strong { font-size: 1.1rem; color: var(--accent); }
 
     .meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 15px; }
     .meal-header h3 { font-size: 1rem; }
     .add-btn { background: var(--accent); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+    .edit-goals-btn { background: #3b82f6; color: white; border: none; padding: 5px 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
     
     .food-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
     .food-item { display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; }
@@ -89,7 +91,10 @@
 
   <!-- Podsumowanie dnia -->
   <section class="card">
-    <div class="card-title">Dzisiejsze podsumowanie</div>
+    <div class="card-title-row">
+      <div class="card-title">Dzisiejsze podsumowanie</div>
+      <button class="edit-goals-btn" onclick="openGoalsModal()">⚙️ Ustaw cele</button>
+    </div>
     <div class="summary-grid">
       <div class="summary-box">
         <span>Kalorie</span>
@@ -97,15 +102,15 @@
       </div>
       <div class="summary-box">
         <span>Białko</span>
-        <strong id="totalProtein">0g</strong>
+        <strong id="totalProtein">0 / 150g</strong>
       </div>
       <div class="summary-box">
         <span>Węglowodany</span>
-        <strong id="totalCarbs">0g</strong>
+        <strong id="totalCarbs">0 / 250g</strong>
       </div>
       <div class="summary-box">
         <span>Tłuszcze</span>
-        <strong id="totalFat">0g</strong>
+        <strong id="totalFat">0 / 70g</strong>
       </div>
     </div>
   </section>
@@ -164,7 +169,6 @@
   <div class="modal-content">
     <h3>Dodaj produkt</h3>
     
-    <!-- Skaner kodów -->
     <button class="scanner-btn" id="startScanBtn" onclick="toggleScanner()">📷 Skanuj kod kreskowy</button>
     <div id="interactive"></div>
 
@@ -209,8 +213,34 @@
   </div>
 </div>
 
+<!-- Modal Edycji Celów -->
+<div class="modal" id="goalsModal">
+  <div class="modal-content">
+    <h3>Ustaw dzienne cele</h3>
+    <div class="form-group">
+      <label>Cel kalorii (kcal)</label>
+      <input type="number" id="goalKcal" placeholder="2000">
+    </div>
+    <div class="form-group">
+      <label>Cel białka (g)</label>
+      <input type="number" id="goalProtein" placeholder="150">
+    </div>
+    <div class="form-group">
+      <label>Cel węglowodanów (g)</label>
+      <input type="number" id="goalCarbs" placeholder="250">
+    </div>
+    <div class="form-group">
+      <label>Cel tłuszczu (g)</label>
+      <input type="number" id="goalFat" placeholder="70">
+    </div>
+    <div class="modal-actions">
+      <button class="cancel-btn" onclick="closeGoalsModal()">Anuluj</button>
+      <button class="add-btn" onclick="saveGoals()">Zapisz cele</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  // Predefiniowana baza produktów
   const defaultProducts = [
     { name: "Jajko całe (1 szt ~50g)", kcal: 143, protein: 12.6, carbs: 0.7, fat: 9.5 },
     { name: "Banan", kcal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 },
@@ -223,6 +253,8 @@
 
   let currentMeal = '';
   let appData = JSON.parse(localStorage.getItem('calorieAppData')) || {
+    lastDate: new Date().toLocaleDateString('pl-PL'),
+    goals: { kcal: 2000, protein: 150, carbs: 250, fat: 70 },
     meals: { breakfast: [], lunch: [], dinner: [], snack: [] },
     weights: [],
     targetWeight: null
@@ -231,8 +263,8 @@
   let html5QrcodeScanner = null;
   let chart = null;
 
-  // Inicjalizacja
   document.addEventListener("DOMContentLoaded", () => {
+    checkMidnightReset();
     initTheme();
     populatePresets();
     renderMeals();
@@ -240,7 +272,16 @@
     initChart();
   });
 
-  // Motyw Light/Dark
+  // Automatyczny reset posiłków o północy
+  function checkMidnightReset() {
+    const today = new Date().toLocaleDateString('pl-PL');
+    if (appData.lastDate !== today) {
+      appData.lastDate = today;
+      appData.meals = { breakfast: [], lunch: [], dinner: [], snack: [] };
+      saveData();
+    }
+  }
+
   function initTheme() {
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -252,7 +293,6 @@
     });
   }
 
-  // Wypełnij listę rozwijaną
   function populatePresets() {
     const select = document.getElementById('presetSelect');
     select.innerHTML = '<option value="">-- Wybierz produkt --</option>';
@@ -272,7 +312,7 @@
     document.getElementById('foodFat').value = prod.fat;
   }
 
-  // Modal
+  // Modale
   function openModal(meal) {
     currentMeal = meal;
     document.getElementById('foodModal').classList.add('active');
@@ -282,6 +322,31 @@
     document.getElementById('foodModal').classList.remove('active');
     stopScanner();
     clearModalInputs();
+  }
+
+  function openGoalsModal() {
+    const g = appData.goals || { kcal: 2000, protein: 150, carbs: 250, fat: 70 };
+    document.getElementById('goalKcal').value = g.kcal;
+    document.getElementById('goalProtein').value = g.protein;
+    document.getElementById('goalCarbs').value = g.carbs;
+    document.getElementById('goalFat').value = g.fat;
+    document.getElementById('goalsModal').classList.add('active');
+  }
+
+  function closeGoalsModal() {
+    document.getElementById('goalsModal').classList.remove('active');
+  }
+
+  function saveGoals() {
+    appData.goals = {
+      kcal: parseFloat(document.getElementById('goalKcal').value) || 2000,
+      protein: parseFloat(document.getElementById('goalProtein').value) || 150,
+      carbs: parseFloat(document.getElementById('goalCarbs').value) || 250,
+      fat: parseFloat(document.getElementById('goalFat').value) || 70
+    };
+    saveData();
+    renderMeals();
+    closeGoalsModal();
   }
 
   function clearModalInputs() {
@@ -294,7 +359,7 @@
     document.getElementById('presetSelect').value = '';
   }
 
-  // Skaner Kodów (Open Food Facts)
+  // Skaner Kodów
   function toggleScanner() {
     const scannerDiv = document.getElementById('interactive');
     if (scannerDiv.style.display === 'block') {
@@ -411,13 +476,14 @@
       });
     });
 
-    document.getElementById('totalKcal').innerText = `${tKcal} / 2000 kcal`;
-    document.getElementById('totalProtein').innerText = `${tP.toFixed(1)}g`;
-    document.getElementById('totalCarbs').innerText = `${tC.toFixed(1)}g`;
-    document.getElementById('totalFat').innerText = `${tF.toFixed(1)}g`;
+    const g = appData.goals || { kcal: 2000, protein: 150, carbs: 250, fat: 70 };
+    document.getElementById('totalKcal').innerText = `${tKcal} / ${g.kcal} kcal`;
+    document.getElementById('totalProtein').innerText = `${tP.toFixed(1)} / ${g.protein}g`;
+    document.getElementById('totalCarbs').innerText = `${tC.toFixed(1)} / ${g.carbs}g`;
+    document.getElementById('totalFat').innerText = `${tF.toFixed(1)} / ${g.fat}g`;
   }
 
-  // Waga i Wykres z Celem
+  // Waga i Wykres
   function updateTargetDisplay() {
     const el = document.getElementById('targetDisplay');
     if (appData.targetWeight) {
