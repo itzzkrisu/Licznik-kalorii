@@ -365,12 +365,13 @@
       <!-- Ukryty Kalkulator Zapotrzebowania -->
       <div id="calculatorModal" class="card calculator-modal">
         <div class="modal-header">
-          <h3 style="margin: 0;">Kalkulator BMR / TDEE</h3>
+          <h3 style="margin: 0;">Kalkulator BMR / TDEE & Cel</h3>
           <button id="closeCalcBtn" class="close-btn">&times;</button>
         </div>
         <div class="vertical-form">
           <input type="number" id="calcAge" placeholder="Wiek">
-          <input type="number" id="calcWeight" placeholder="Waga (kg)">
+          <input type="number" id="calcWeight" placeholder="Obecna waga (kg)">
+          <input type="number" id="calcTargetWeight" step="0.1" placeholder="Docelowa waga (kg)">
           <input type="number" id="calcHeight" placeholder="Wzrost (cm)">
           <select id="calcGender">
             <option value="male">Mężczyzna</option>
@@ -383,10 +384,28 @@
             <option value="1.725">Wysoka (codziennie)</option>
           </select>
           <select id="calcGoal">
-            <option value="maintain">Utrzymanie</option>
-            <option value="cut">Redukcja (-15%)</option>
-            <option value="bulk">Masa (+15%)</option>
+            <option value="maintain">Utrzymanie wagi</option>
+            <option value="cut">Redukcja (chudnięcie)</option>
+            <option value="bulk">Masa (przytycie)</option>
           </select>
+
+          <!-- Dynamiczne wybieranie tempa zmian -->
+          <div id="calcRateContainer" style="display: none;">
+            <label style="font-size: 0.85em; font-weight: bold;">Tempo zmian / tydzień:</label>
+            <select id="calcRate">
+              <option value="0.1">0,1 kg / tydz (±100 kcal)</option>
+              <option value="0.2">0,2 kg / tydz (±200 kcal)</option>
+              <option value="0.3">0,3 kg / tydz (±300 kcal)</option>
+              <option value="0.4">0,4 kg / tydz (±400 kcal)</option>
+              <option value="0.5" selected>0,5 kg / tydz (±500 kcal)</option>
+              <option value="0.6">0,6 kg / tydz (±600 kcal)</option>
+              <option value="0.7">0,7 kg / tydz (±700 kcal)</option>
+              <option value="0.8">0,8 kg / tydz (±800 kcal)</option>
+              <option value="0.9">0,9 kg / tydz (±900 kcal)</option>
+              <option value="1.0">1,0 kg / tydz (±1000 kcal)</option>
+            </select>
+          </div>
+
           <button id="calculateBmrBtn" style="width: 100%;">Oblicz i Zapisz Cele</button>
         </div>
       </div>
@@ -437,7 +456,7 @@
     </div>
   </div>
 
- <!-- Nawodnienie Wody -->
+  <!-- Nawodnienie Wody -->
   <div class="card">
     <h3>Spożycie Wody 💧</h3>
     <div class="macro-bar-container">
@@ -611,7 +630,7 @@
   <div class="card">
     <h3>Śledzenie Wagi</h3>
     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-      <input type="number" id="weightTrackerInput" placeholder="Aktualna waga (kg)">
+      <input type="number" id="weightTrackerInput" step="0.1" placeholder="Aktualna waga (kg)">
       <button id="addWeightLogBtn" style="white-space: nowrap;">Zapisz Pomiar</button>
     </div>
     <canvas id="weightChart"></canvas>
@@ -634,7 +653,7 @@
 
   // --- ZMIENNE STANU ---
   let selectedFood = null;
-  let targets = JSON.parse(localStorage.getItem('user_targets')) || { cal: 2000, protein: 125, carbs: 250, fat: 55, water: 2500 };
+  let targets = JSON.parse(localStorage.getItem('user_targets')) || { cal: 2000, protein: 125, carbs: 250, fat: 55, water: 2500, targetWeight: null };
   let weightHistory = JSON.parse(localStorage.getItem('weight_history')) || [];
   
   function formatDate(d) {
@@ -649,18 +668,24 @@
   let workouts = [];
   let waterIntake = 0;
 
-  // Wykresy Statystyk
+  // Wykresy
   let weeklyChartObj = null;
   let monthlyChartObj = null;
+  let weightChart = null;
 
   // --- OBSŁUGA KALKULATORA W ZĘBATCE ---
   const settingsBtn = document.getElementById('settingsBtn');
   const calculatorModal = document.getElementById('calculatorModal');
   const closeCalcBtn = document.getElementById('closeCalcBtn');
+  const calcGoalSelect = document.getElementById('calcGoal');
+  const calcRateContainer = document.getElementById('calcRateContainer');
 
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     calculatorModal.classList.toggle('active');
+    if (targets.targetWeight) {
+      document.getElementById('calcTargetWeight').value = targets.targetWeight;
+    }
   });
 
   closeCalcBtn.addEventListener('click', () => {
@@ -673,14 +698,18 @@
     }
   });
 
+  calcGoalSelect.addEventListener('change', () => {
+    if (calcGoalSelect.value === 'maintain') {
+      calcRateContainer.style.display = 'none';
+    } else {
+      calcRateContainer.style.display = 'block';
+    }
+  });
+
   // --- WCZYTYWANIE I ZAPIS DANYCH DLA DANEJ DATY ---
   function loadMealsForDate(dateStr) {
     const saved = localStorage.getItem(`meals_${dateStr}`);
-    if (saved) {
-      meals = JSON.parse(saved);
-    } else {
-      meals = { breakfast: [], lunch: [], dinner: [], snacks: [] };
-    }
+    meals = saved ? JSON.parse(saved) : { breakfast: [], lunch: [], dinner: [], snacks: [] };
 
     const savedWorkouts = localStorage.getItem(`workouts_${dateStr}`);
     workouts = savedWorkouts ? JSON.parse(savedWorkouts) : [];
@@ -768,7 +797,7 @@
     tabSearch.classList.remove('active');
   });
 
-  // --- ZAKŁADKI STATYSTYK (Tygodniowe / Miesięczne) ---
+  // --- ZAKŁADKI STATYSTYK ---
   const tabWeeklyBtn = document.getElementById('tabWeeklyBtn');
   const tabMonthlyBtn = document.getElementById('tabMonthlyBtn');
   const tabWeekly = document.getElementById('tabWeekly');
@@ -779,8 +808,6 @@
     tabMonthlyBtn.classList.remove('active');
     tabWeekly.classList.add('active');
     tabMonthly.classList.remove('active');
-
-    // Wymuszenie ponownej blokady miesięcznej przy opuszczeniu zakładki
     lockMonthlyStats();
   });
 
@@ -791,7 +818,6 @@
     tabWeekly.classList.remove('active');
   });
 
-  // LOGIKA BLOKADY I KODU PIN
   function lockMonthlyStats() {
     document.getElementById('pinBox').style.display = 'block';
     document.getElementById('monthlyContent').style.display = 'none';
@@ -810,7 +836,7 @@
     }
   });
 
-  // --- OBLICZANIE DANYCH DO STATYSTYK ---
+  // --- STATYSTYKI ---
   function getHistoricalData(daysCount) {
     const labels = [];
     const caloriesData = [];
@@ -849,7 +875,6 @@
 
   function renderWeeklyStats() {
     const data = getHistoricalData(7);
-
     const ctx = document.getElementById('weeklyChart').getContext('2d');
     if (weeklyChartObj) weeklyChartObj.destroy();
 
@@ -867,27 +892,18 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false }
-        },
-        scales: {
-          y: { beginAtZero: true }
-        }
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
       }
     });
 
-    const avgCal = Math.round(data.caloriesData.reduce((a, b) => a + b, 0) / 7);
-    const avgProtein = Math.round(data.proteinData.reduce((a, b) => a + b, 0) / 7);
-    const avgWater = Math.round(data.waterData.reduce((a, b) => a + b, 0) / 7);
-
-    document.getElementById('weeklyAvgCal').textContent = `${avgCal} kcal`;
-    document.getElementById('weeklyAvgProtein').textContent = `${avgProtein} g`;
-    document.getElementById('weeklyAvgWater').textContent = `${avgWater} ml`;
+    document.getElementById('weeklyAvgCal').textContent = `${Math.round(data.caloriesData.reduce((a, b) => a + b, 0) / 7)} kcal`;
+    document.getElementById('weeklyAvgProtein').textContent = `${Math.round(data.proteinData.reduce((a, b) => a + b, 0) / 7)} g`;
+    document.getElementById('weeklyAvgWater').textContent = `${Math.round(data.waterData.reduce((a, b) => a + b, 0) / 7)} ml`;
   }
 
   function renderMonthlyStats() {
     const data = getHistoricalData(30);
-
     const ctx = document.getElementById('monthlyChart').getContext('2d');
     if (monthlyChartObj) monthlyChartObj.destroy();
 
@@ -905,22 +921,14 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false }
-        },
-        scales: {
-          y: { beginAtZero: true }
-        }
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
       }
     });
 
-    const avgCal = Math.round(data.caloriesData.reduce((a, b) => a + b, 0) / 30);
-    const avgProtein = Math.round(data.proteinData.reduce((a, b) => a + b, 0) / 30);
-    const avgWater = Math.round(data.waterData.reduce((a, b) => a + b, 0) / 30);
-
-    document.getElementById('monthlyAvgCal').textContent = `${avgCal} kcal`;
-    document.getElementById('monthlyAvgProtein').textContent = `${avgProtein} g`;
-    document.getElementById('monthlyAvgWater').textContent = `${avgWater} ml`;
+    document.getElementById('monthlyAvgCal').textContent = `${Math.round(data.caloriesData.reduce((a, b) => a + b, 0) / 30)} kcal`;
+    document.getElementById('monthlyAvgProtein').textContent = `${Math.round(data.proteinData.reduce((a, b) => a + b, 0) / 30)} g`;
+    document.getElementById('monthlyAvgWater').textContent = `${Math.round(data.waterData.reduce((a, b) => a + b, 0) / 30)} ml`;
   }
 
   // --- OBSŁUGA WODY ---
@@ -959,13 +967,13 @@
     }
     localStorage.setItem(`water_${currentDate}`, waterIntake);
     updateWaterUI();
-    if (typeof renderWeeklyStats === "function") renderWeeklyStats(); 
+    renderWeeklyStats();
   }
 
   waterBtn250.addEventListener('click', () => modifyWater(250));
   waterBtn500.addEventListener('click', () => modifyWater(500));
 
-  // --- WYSZUKIWARKA I OPEN FOOD FACTS ---
+  // --- WYSZUKIWARKA ---
   const searchInput = document.getElementById('searchInput');
   const searchResults = document.getElementById('searchResults');
 
@@ -999,7 +1007,7 @@
         });
       }
     } catch (err) {
-      console.log('Błąd zapytania do API', err);
+      console.log('Błąd API', err);
     }
 
     searchResults.style.display = 'block';
@@ -1081,7 +1089,6 @@
     document.getElementById('quickFatInput').value = '';
   });
 
-  // --- RENDEROWANIE POSIŁKÓW ---
   function renderMeals() {
     ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(type => {
       const container = document.getElementById(`${type}List`);
@@ -1109,7 +1116,7 @@
     updateSummary();
   };
 
-  // --- LOGIKA TRENINGÓW ---
+  // --- TRENINGI ---
   function renderWorkouts() {
     const container = document.getElementById('workoutList');
     container.innerHTML = '';
@@ -1164,7 +1171,7 @@
     document.getElementById('workoutCalInput').value = '';
   });
 
-  // --- PODSUMOWANIE I PASKI POSTĘPU ---
+  // --- PODSUMOWANIE ---
   function updateSummary() {
     let totals = { cal: 0, protein: 0, carbs: 0, fat: 0 };
     let burnedCal = 0;
@@ -1202,14 +1209,16 @@
     document.getElementById('fatFill').style.width = `${Math.min(100, (totals.fat / targets.fat) * 100)}%`;
   }
 
-  // --- KALKULATOR BMR / TDEE ---
+  // --- KALKULATOR BMR / TDEE Z DEFINIOWANIEM DEFICYTU/NADWYŻKI I WAGI DOCELOWEJ ---
   document.getElementById('calculateBmrBtn').addEventListener('click', () => {
     const age = parseFloat(document.getElementById('calcAge').value);
     const weight = parseFloat(document.getElementById('calcWeight').value);
+    const targetWeightVal = parseFloat(document.getElementById('calcTargetWeight').value);
     const height = parseFloat(document.getElementById('calcHeight').value);
     const gender = document.getElementById('calcGender').value;
     const activity = parseFloat(document.getElementById('calcActivity').value);
     const goal = document.getElementById('calcGoal').value;
+    const rate = parseFloat(document.getElementById('calcRate').value) || 0.5;
 
     if (!age || !weight || !height) return;
 
@@ -1218,8 +1227,11 @@
 
     let tdee = bmr * activity;
 
-    if (goal === 'cut') tdee *= 0.85;
-    if (goal === 'bulk') tdee *= 1.15;
+    // Przeliczenie tempa (0.1kg - 1.0kg => 100kcal - 1000kcal)
+    const kcalOffset = rate * 1000;
+
+    if (goal === 'cut') tdee -= kcalOffset;
+    if (goal === 'bulk') tdee += kcalOffset;
 
     const calTarget = Math.round(tdee);
     targets = {
@@ -1227,12 +1239,14 @@
       protein: Math.round((calTarget * 0.25) / 4),
       carbs: Math.round((calTarget * 0.50) / 4),
       fat: Math.round((calTarget * 0.25) / 9),
-      water: targets.water || 2500
+      water: targets.water || 2500,
+      targetWeight: targetWeightVal || targets.targetWeight || null
     };
 
     localStorage.setItem('user_targets', JSON.stringify(targets));
     updateSummary();
     updateWaterUI();
+    updateWeightChartData();
     calculatorModal.classList.remove('active');
     alert(`Obliczono cele: ${calTarget} kcal dziennie!`);
   });
@@ -1272,22 +1286,42 @@
     });
   });
 
-  // --- WYKRES WAGI ---
+  // --- WYKRES WAGI Z CELIEM WAGOWYM ---
   const ctxWeight = document.getElementById('weightChart').getContext('2d');
-  let weightChart = new Chart(ctxWeight, {
+  
+  weightChart = new Chart(ctxWeight, {
     type: 'line',
     data: {
       labels: weightHistory.map(entry => entry.date),
-      datasets: [{
-        label: 'Waga (kg)',
-        data: weightHistory.map(entry => entry.weight),
-        borderColor: '#4caf50',
-        tension: 0.2,
-        fill: false
-      }]
+      datasets: [
+        {
+          label: 'Waga (kg)',
+          data: weightHistory.map(entry => entry.weight),
+          borderColor: '#4caf50',
+          backgroundColor: 'rgba(76, 175, 80, 0.1)',
+          tension: 0.2,
+          fill: false
+        },
+        {
+          label: 'Cel (kg)',
+          data: weightHistory.map(() => targets.targetWeight),
+          borderColor: '#ff9800',
+          borderDash: [6, 6],
+          pointRadius: 0,
+          fill: false
+        }
+      ]
     },
     options: { responsive: true }
   });
+
+  function updateWeightChartData() {
+    if (!weightChart) return;
+    weightChart.data.labels = weightHistory.map(e => e.date);
+    weightChart.data.datasets[0].data = weightHistory.map(e => e.weight);
+    weightChart.data.datasets[1].data = weightHistory.map(() => targets.targetWeight);
+    weightChart.update();
+  }
 
   document.getElementById('addWeightLogBtn').addEventListener('click', () => {
     const val = parseFloat(document.getElementById('weightTrackerInput').value);
@@ -1296,9 +1330,7 @@
     weightHistory.push({ date: currentDate, weight: val });
     localStorage.setItem('weight_history', JSON.stringify(weightHistory));
 
-    weightChart.data.labels = weightHistory.map(e => e.date);
-    weightChart.data.datasets[0].data = weightHistory.map(e => e.weight);
-    weightChart.update();
+    updateWeightChartData();
     document.getElementById('weightTrackerInput').value = '';
   });
 
