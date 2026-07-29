@@ -1259,18 +1259,122 @@
   // Start aplikacji
   loadMealsForDate(currentDate);
     loadWorkoutsForDate(currentDate);
-    // --- OBSŁUGA TRENINGÓW ---
+   // --- OBSŁUGA TRENINGÓW (BEZPIECZNA WERSJA) ---
 let workouts = [];
 
-// Ładowanie treningów dla wybranej daty
+// Średnie przeliczniki spalania (kcal / minuta)
+const workoutRates = {
+  bieganie_szybkie: 11.5,
+  bieganie_umiarkowane: 9.0,
+  silownia: 6.5,
+  plywanie: 8.5,
+  rower: 7.5,
+  lekkoatletyka: 6.5,
+  spacer: 4.0
+};
+
+// Pomocnicza funkcja do pobierania aktualnej daty (zabezpieczenie)
+function getActiveDate() {
+  return typeof currentDate !== 'undefined' ? currentDate : new Date().toISOString().split('T')[0];
+}
+
+// Wyliczanie kalorii "na żywo"
+function autoCalculateBurnedCalories() {
+  const select = document.getElementById('workoutTypeSelect');
+  const durationInput = document.getElementById('workoutDurationInput');
+  const calInput = document.getElementById('workoutCalInput');
+
+  if (!select || !durationInput || !calInput) return;
+
+  const selectedType = select.value;
+  const duration = parseFloat(durationInput.value) || 0;
+
+  if (selectedType && selectedType !== 'custom' && workoutRates[selectedType]) {
+    const rate = workoutRates[selectedType];
+    calInput.value = Math.round(duration * rate);
+  }
+}
+
+// Rejestracja zdarzeń po załadowaniu drzewa DOM
+document.addEventListener('DOMContentLoaded', () => {
+  const select = document.getElementById('workoutTypeSelect');
+  const nameInput = document.getElementById('workoutNameInput');
+  const durationInput = document.getElementById('workoutDurationInput');
+  const addBtn = document.getElementById('addWorkoutBtn');
+
+  if (select) {
+    select.addEventListener('change', () => {
+      if (select.value === 'custom') {
+        nameInput.style.display = 'block';
+        nameInput.value = '';
+        nameInput.focus();
+        document.getElementById('workoutCalInput').value = '';
+      } else {
+        nameInput.style.display = 'none';
+        autoCalculateBurnedCalories();
+      }
+    });
+  }
+
+  if (durationInput) {
+    durationInput.addEventListener('input', autoCalculateBurnedCalories);
+  }
+
+  if (addBtn) {
+    addBtn.addEventListener('click', addWorkout);
+  }
+
+  // Wczytaj treningi na start
+  loadWorkoutsForDate(getActiveDate());
+});
+
+// Zapis nowego treningu
+function addWorkout() {
+  const select = document.getElementById('workoutTypeSelect');
+  const nameInput = document.getElementById('workoutNameInput');
+  const durationInput = document.getElementById('workoutDurationInput');
+  const calInput = document.getElementById('workoutCalInput');
+
+  const selectedType = select.value;
+  let name = '';
+
+  if (selectedType === 'custom') {
+    name = nameInput.value.trim();
+  } else if (selectedType) {
+    name = select.options[select.selectedIndex].text;
+  }
+
+  const duration = parseFloat(durationInput.value) || 0;
+  const cal = parseFloat(calInput.value) || 0;
+
+  if (!name || duration <= 0) {
+    alert('Wybierz aktywność i wpisz czas trwania!');
+    return;
+  }
+
+  workouts.push({ name, duration, cal });
+  saveWorkouts();
+  renderWorkouts();
+
+  // Reset pól
+  select.value = '';
+  nameInput.style.display = 'none';
+  nameInput.value = '';
+  durationInput.value = '';
+  calInput.value = '';
+}
+
+// Ładowanie z localStorage
 function loadWorkoutsForDate(date) {
   workouts = JSON.parse(localStorage.getItem(`workouts_${date}`)) || [];
   renderWorkouts();
 }
 
-// Renderowanie listy treningów i podsumowania
+// Renderowanie listy treningów
 function renderWorkouts() {
   const container = document.getElementById('workoutList');
+  if (!container) return;
+
   container.innerHTML = '';
 
   let totalTime = 0;
@@ -1281,7 +1385,7 @@ function renderWorkouts() {
     totalCal += item.cal;
 
     const div = document.createElement('div');
-    div.className = 'food-item'; // Wykorzystujemy te same style co przy jedzeniu
+    div.className = 'food-item';
     div.innerHTML = `
       <div>
         <strong>${item.name}</strong> - ${item.duration} min
@@ -1292,34 +1396,11 @@ function renderWorkouts() {
     container.appendChild(div);
   });
 
-  document.getElementById('totalWorkoutTime').textContent = totalTime;
-  document.getElementById('totalWorkoutCal').textContent = Math.round(totalCal);
+  const timeElem = document.getElementById('totalWorkoutTime');
+  const calElem = document.getElementById('totalWorkoutCal');
+  if (timeElem) timeElem.textContent = totalTime;
+  if (calElem) calElem.textContent = Math.round(totalCal);
 }
-
-
-document.getElementById('addWorkoutBtn').addEventListener('click', () => {
-  const nameInput = document.getElementById('workoutNameInput');
-  const durationInput = document.getElementById('workoutDurationInput');
-  const calInput = document.getElementById('workoutCalInput');
-
-  const name = nameInput.value.trim();
-  const duration = parseFloat(durationInput.value) || 0;
-  const cal = parseFloat(calInput.value) || 0;
-
-  if (!name || duration <= 0) {
-    alert('Wpisz nazwę treningu i czas jego trwania!');
-    return;
-  }
-
-  workouts.push({ name, duration, cal });
-  saveWorkouts();
-  renderWorkouts();
-
-  // Wyczyszczenie pól formularza
-  nameInput.value = '';
-  durationInput.value = '';
-  calInput.value = '';
-});
 
 // Usuwanie treningu
 function deleteWorkout(index) {
@@ -1328,9 +1409,8 @@ function deleteWorkout(index) {
   renderWorkouts();
 }
 
-// Zapis do localStorage pod kluczem z aktualną datą
 function saveWorkouts() {
-  localStorage.setItem(`workouts_${currentDate}`, JSON.stringify(workouts));
+  localStorage.setItem(`workouts_${getActiveDate()}`, JSON.stringify(workouts));
 }
     
 </script>
