@@ -348,6 +348,16 @@
     input:checked + .slider:before {
       transform: translateX(20px);
     }
+
+    .goal-prediction-card {
+      margin-top: 15px;
+      padding: 12px;
+      background-color: var(--input-bg);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      text-align: center;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
@@ -550,11 +560,25 @@
     </div>
   </div>
 
-  <!-- MODUŁ TRENINGÓW -->
+  <!-- MODUŁ TRENINGÓW Z BAZĄ DANYCH / PRZELICZNIKIEM -->
   <div class="card">
     <h2>🏋️‍♂️ Treningi i Aktywność</h2>
     <div class="grid-form" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
-      <input type="text" id="workoutNameInput" placeholder="Nazwa (np. Bieganie, Gym)">
+      <!-- Baza dyscyplin -->
+      <select id="workoutPresetSelect">
+        <option value="custom">-- Wpisz własny --</option>
+        <option value="gym">Siłownia (trening siłowy)</option>
+        <option value="run_slow">Bieganie (wolne ~8 km/h)</option>
+        <option value="run_mid">Bieganie (średnie ~10 km/h)</option>
+        <option value="run_fast">Bieganie (szybkie ~12 km/h)</option>
+        <option value="walk_slow">Spacer (wolny ~4 km/h)</option>
+        <option value="walk_fast">Spacer (żwawy ~6 km/h)</option>
+        <option value="bike_slow">Rower (rekreacyjnie ~15 km/h)</option>
+        <option value="bike_fast">Rower (szybko ~20 km/h)</option>
+        <option value="swim">Pływanie</option>
+      </select>
+
+      <input type="text" id="workoutNameInput" placeholder="Nazwa aktywności">
       <input type="number" id="workoutDurationInput" placeholder="Czas (min)">
       <input type="number" id="workoutCalInput" placeholder="Spalone kcal">
       <button id="addWorkoutBtn">Dodaj Trening</button>
@@ -626,7 +650,7 @@
     </div>
   </div>
 
-  <!-- Wykres Wagi -->
+  <!-- Wykres Wagi i Estymacja Celu -->
   <div class="card">
     <h3>Śledzenie Wagi</h3>
     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -634,12 +658,15 @@
       <button id="addWeightLogBtn" style="white-space: nowrap;">Zapisz Pomiar</button>
     </div>
     <canvas id="weightChart"></canvas>
+
+    <!-- Przewidywanie daty celu -->
+    <div id="goalEstimationBox" class="goal-prediction-card"></div>
   </div>
 
 </div>
 
 <script>
-  // --- LOKALNA BAZA DANYCH ---
+  // --- LOKALNA BAZA DANYCH PRODUKTÓW ---
   const localDb = [
     { name: "Jabłko", cal: 52, protein: 0.3, carbs: 14, fat: 0.2 },
     { name: "Pierś z kurczaka (surowa)", cal: 120, protein: 22.5, carbs: 0, fat: 2.6 },
@@ -651,9 +678,25 @@
     { name: "Banan", cal: 89, protein: 1.1, carbs: 22.8, fat: 0.3 }
   ];
 
+  // --- BAZA WSPÓŁCZYNNIKÓW AKTYWNOŚCI (MET) DLA TRENINGÓW ---
+  const workoutPresets = {
+    gym: { name: 'Siłownia (trening siłowy)', met: 6.0 },
+    run_slow: { name: 'Bieganie (wolne ~8 km/h)', met: 8.0 },
+    run_mid: { name: 'Bieganie (średnie ~10 km/h)', met: 10.0 },
+    run_fast: { name: 'Bieganie (szybkie ~12 km/h)', met: 11.5 },
+    walk_slow: { name: 'Spacer (wolny ~4 km/h)', met: 3.0 },
+    walk_fast: { name: 'Spacer (żwawy ~6 km/h)', met: 4.5 },
+    bike_slow: { name: 'Rower (rekreacyjnie ~15 km/h)', met: 6.0 },
+    bike_fast: { name: 'Rower (szybko ~20 km/h)', met: 8.5 },
+    swim: { name: 'Pływanie', met: 8.0 }
+  };
+
   // --- ZMIENNE STANU ---
   let selectedFood = null;
-  let targets = JSON.parse(localStorage.getItem('user_targets')) || { cal: 2000, protein: 125, carbs: 250, fat: 55, water: 2500, targetWeight: null };
+  let targets = JSON.parse(localStorage.getItem('user_targets')) || { 
+    cal: 2000, protein: 125, carbs: 250, fat: 55, water: 2500, 
+    targetWeight: null, userWeight: 70, rate: 0.5, goal: 'cut' 
+  };
   let weightHistory = JSON.parse(localStorage.getItem('weight_history')) || [];
   
   function formatDate(d) {
@@ -683,8 +726,12 @@
   settingsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     calculatorModal.classList.toggle('active');
-    if (targets.targetWeight) {
-      document.getElementById('calcTargetWeight').value = targets.targetWeight;
+    if (targets.targetWeight) document.getElementById('calcTargetWeight').value = targets.targetWeight;
+    if (targets.userWeight) document.getElementById('calcWeight').value = targets.userWeight;
+    if (targets.rate) document.getElementById('calcRate').value = targets.rate;
+    if (targets.goal) {
+      document.getElementById('calcGoal').value = targets.goal;
+      calcRateContainer.style.display = targets.goal === 'maintain' ? 'none' : 'block';
     }
   });
 
@@ -1116,7 +1163,33 @@
     updateSummary();
   };
 
-  // --- TRENINGI ---
+  // --- AUTOMATYCZNE OBLICZANIE SPALONYCH KALORII W TRENINGU ---
+  function autoCalcWorkoutCalories() {
+    const presetKey = document.getElementById('workoutPresetSelect').value;
+    const duration = parseFloat(document.getElementById('workoutDurationInput').value) || 0;
+
+    if (presetKey === 'custom' || !workoutPresets[presetKey]) return;
+
+    const preset = workoutPresets[presetKey];
+    document.getElementById('workoutNameInput').value = preset.name;
+
+    let userW = 70;
+    if (weightHistory.length > 0) {
+      userW = weightHistory[weightHistory.length - 1].weight;
+    } else if (targets.userWeight) {
+      userW = targets.userWeight;
+    }
+
+    if (duration > 0) {
+      const burned = (preset.met * userW * duration) / 60;
+      document.getElementById('workoutCalInput').value = Math.round(burned);
+    }
+  }
+
+  document.getElementById('workoutPresetSelect').addEventListener('change', autoCalcWorkoutCalories);
+  document.getElementById('workoutDurationInput').addEventListener('input', autoCalcWorkoutCalories);
+
+  // --- OBSŁUGA TRENINGÓW ---
   function renderWorkouts() {
     const container = document.getElementById('workoutList');
     container.innerHTML = '';
@@ -1166,6 +1239,7 @@
     renderWorkouts();
     updateSummary();
 
+    document.getElementById('workoutPresetSelect').value = 'custom';
     document.getElementById('workoutNameInput').value = '';
     document.getElementById('workoutDurationInput').value = '';
     document.getElementById('workoutCalInput').value = '';
@@ -1209,7 +1283,7 @@
     document.getElementById('fatFill').style.width = `${Math.min(100, (totals.fat / targets.fat) * 100)}%`;
   }
 
-  // --- KALKULATOR BMR / TDEE Z DEFINIOWANIEM DEFICYTU/NADWYŻKI I WAGI DOCELOWEJ ---
+  // --- KALKULATOR BMR / TDEE ---
   document.getElementById('calculateBmrBtn').addEventListener('click', () => {
     const age = parseFloat(document.getElementById('calcAge').value);
     const weight = parseFloat(document.getElementById('calcWeight').value);
@@ -1227,7 +1301,6 @@
 
     let tdee = bmr * activity;
 
-    // Przeliczenie tempa (0.1kg - 1.0kg => 100kcal - 1000kcal)
     const kcalOffset = rate * 1000;
 
     if (goal === 'cut') tdee -= kcalOffset;
@@ -1240,7 +1313,10 @@
       carbs: Math.round((calTarget * 0.50) / 4),
       fat: Math.round((calTarget * 0.25) / 9),
       water: targets.water || 2500,
-      targetWeight: targetWeightVal || targets.targetWeight || null
+      targetWeight: targetWeightVal || targets.targetWeight || null,
+      userWeight: weight,
+      rate: rate,
+      goal: goal
     };
 
     localStorage.setItem('user_targets', JSON.stringify(targets));
@@ -1286,7 +1362,7 @@
     });
   });
 
-  // --- WYKRES WAGI Z CELIEM WAGOWYM ---
+  // --- WYKRES WAGI Z CELIEM I WYZNACZANIEM DATY CELU ---
   const ctxWeight = document.getElementById('weightChart').getContext('2d');
   
   weightChart = new Chart(ctxWeight, {
@@ -1315,12 +1391,56 @@
     options: { responsive: true }
   });
 
+  // OBLICZANIE PRZEWIDYWANEJ DATY OSIĄGNIĘCIA CELU
+  function updateGoalEstimation() {
+    const estimationBox = document.getElementById('goalEstimationBox');
+    if (!estimationBox) return;
+
+    const targetW = parseFloat(targets.targetWeight);
+    const rate = parseFloat(targets.rate) || 0.5;
+
+    let currentW = null;
+    if (weightHistory.length > 0) {
+      currentW = weightHistory[weightHistory.length - 1].weight;
+    } else if (targets.userWeight) {
+      currentW = targets.userWeight;
+    }
+
+    if (!targetW || !currentW) {
+      estimationBox.innerHTML = '🎯 <i>Wpisz wagę docelową w zębatce (⚙️) i dodaj wpis wagi, aby poznać szacowaną datę osiągnięcia celu.</i>';
+      return;
+    }
+
+    const diff = Math.abs(currentW - targetW);
+    if (diff < 0.1) {
+      estimationBox.innerHTML = '🎉 <b>Cel osiągnięty! Gratulacje!</b>';
+      return;
+    }
+
+    const weeksNeeded = diff / rate;
+    const daysNeeded = Math.ceil(weeksNeeded * 7);
+
+    const today = new Date();
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + daysNeeded);
+
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    const formattedDate = targetDate.toLocaleDateString('pl-PL', options);
+
+    estimationBox.innerHTML = `
+      🎯 Przewidywana data osiągnięcia celu (<b>${targetW} kg</b>):<br>
+      <strong style="color: var(--accent-color); font-size: 1.25em;">${formattedDate} r.</strong><br>
+      <small style="opacity: 0.8;">(za ok. <b>${daysNeeded}</b> dni / <b>${weeksNeeded.toFixed(1)}</b> tyg. przy tempie ${rate} kg/tydz.)</small>
+    `;
+  }
+
   function updateWeightChartData() {
     if (!weightChart) return;
     weightChart.data.labels = weightHistory.map(e => e.date);
     weightChart.data.datasets[0].data = weightHistory.map(e => e.weight);
     weightChart.data.datasets[1].data = weightHistory.map(() => targets.targetWeight);
     weightChart.update();
+    updateGoalEstimation();
   }
 
   document.getElementById('addWeightLogBtn').addEventListener('click', () => {
@@ -1350,6 +1470,7 @@
 
   // Start aplikacji
   loadMealsForDate(currentDate);
+  updateGoalEstimation();
 </script>
 
 </body>
