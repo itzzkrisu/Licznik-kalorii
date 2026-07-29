@@ -603,7 +603,28 @@
 
 </div>
 
-<script>
+  <!-- Sekcja Treningów -->
+<div class="card">
+  <h3>Dziennik Treningowy 🏋️‍♂️</h3>
+  
+  <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+    <input type="text" id="workoutNameInput" placeholder="Nazwa (np. Bieganie, Siłownia)" style="flex: 2; min-width: 140px;">
+    <input type="number" id="workoutDurationInput" placeholder="Czas (min)" style="flex: 1; min-width: 90px;">
+    <input type="number" id="workoutCalInput" placeholder="Kcal" style="flex: 1; min-width: 70px;">
+    <button id="addWorkoutBtn" class="btn" style="background-color: #ff9800;">Dodaj</button>
+  </div>
+
+  <!-- Lista dodanych treningów -->
+  <div id="workoutList"></div>
+
+  <!-- Podsumowanie aktywności -->
+  <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(0,0,0,0.1); display: flex; justify-content: space-between; font-weight: bold;">
+    <span>Łączny czas: <span id="totalWorkoutTime">0</span> min</span>
+    <span>Spalone: <span id="totalWorkoutCal">0</span> kcal 🔥</span>
+  </div>
+</div>
+
+  <script>
   // --- LOKALNA BAZA DANYCH ---
   const localDb = [
     { name: "Jabłko", cal: 52, protein: 0.3, carbs: 14, fat: 0.2 },
@@ -1237,6 +1258,81 @@
 
   // Start aplikacji
   loadMealsForDate(currentDate);
+    loadWorkoutsForDate(currentDate);
+    // --- OBSŁUGA TRENINGÓW ---
+let workouts = [];
+
+// Ładowanie treningów dla wybranej daty
+function loadWorkoutsForDate(date) {
+  workouts = JSON.parse(localStorage.getItem(`workouts_${date}`)) || [];
+  renderWorkouts();
+}
+
+// Renderowanie listy treningów i podsumowania
+function renderWorkouts() {
+  const container = document.getElementById('workoutList');
+  container.innerHTML = '';
+
+  let totalTime = 0;
+  let totalCal = 0;
+
+  workouts.forEach((item, index) => {
+    totalTime += item.duration;
+    totalCal += item.cal;
+
+    const div = document.createElement('div');
+    div.className = 'food-item'; // Wykorzystujemy te same style co przy jedzeniu
+    div.innerHTML = `
+      <div>
+        <strong>${item.name}</strong> - ${item.duration} min
+        <br><small>🔥 ${item.cal} kcal</small>
+      </div>
+      <button class="delete-btn" onclick="deleteWorkout(${index})">X</button>
+    `;
+    container.appendChild(div);
+  });
+
+  document.getElementById('totalWorkoutTime').textContent = totalTime;
+  document.getElementById('totalWorkoutCal').textContent = Math.round(totalCal);
+}
+
+
+document.getElementById('addWorkoutBtn').addEventListener('click', () => {
+  const nameInput = document.getElementById('workoutNameInput');
+  const durationInput = document.getElementById('workoutDurationInput');
+  const calInput = document.getElementById('workoutCalInput');
+
+  const name = nameInput.value.trim();
+  const duration = parseFloat(durationInput.value) || 0;
+  const cal = parseFloat(calInput.value) || 0;
+
+  if (!name || duration <= 0) {
+    alert('Wpisz nazwę treningu i czas jego trwania!');
+    return;
+  }
+
+  workouts.push({ name, duration, cal });
+  saveWorkouts();
+  renderWorkouts();
+
+  // Wyczyszczenie pól formularza
+  nameInput.value = '';
+  durationInput.value = '';
+  calInput.value = '';
+});
+
+// Usuwanie treningu
+function deleteWorkout(index) {
+  workouts.splice(index, 1);
+  saveWorkouts();
+  renderWorkouts();
+}
+
+// Zapis do localStorage pod kluczem z aktualną datą
+function saveWorkouts() {
+  localStorage.setItem(`workouts_${currentDate}`, JSON.stringify(workouts));
+}
+    
 </script>
 
 </body>
