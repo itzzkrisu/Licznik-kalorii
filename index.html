@@ -421,8 +421,8 @@
       </div>
     </div>
   </header>
- 
- <!-- Pasek Nawigacji Daty -->
+
+  <!-- Pasek Nawigacji Daty -->
   <div class="card date-nav">
     <button id="prevDayBtn">&larr; Poprzedni</button>
     <input type="date" id="selectedDateInput" style="width: auto;">
@@ -666,55 +666,6 @@
 </div>
 
 <script>
- function debounce(func, delay) {
-  let timeoutId;
-  
-  return function(...args) {
-    // Czyści poprzedni licznik, jeśli wpisano kolejną literę przed upływem czasu
-    clearTimeout(timeoutId);
-    
-    // Ustawia nowy licznik
-    timeoutId = setTimeout(() => {
-      func.apply(this, args);
-    }, delay);
-  };
-} 
-  async function fetchFromOpenFoodFacts(query) {
-  // Zabezpieczenie: jeśli input jest pusty, nie wysyłaj zapytania
-  if (query.trim() === '') {
-    // Tutaj dodaj kod czyszczący listę wyników w Twoim interfejsie
-    return;
-  }
-
-  try {
-    // Przykładowe zapytanie do polskiej bazy Open Food Facts
-    const url = `https://pl.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`;
-    const response = await fetch(url);
-    
-    if (!response.ok) throw new Error('Błąd połączenia z API');
-    
-    const data = await response.json();
-    
-    // Tutaj dodaj kod, który wyświetla pobrane produkty na ekranie
-    console.log("Znalezione produkty:", data.products);
-    
-  } catch (error) {
-    console.error("Błąd podczas pobierania danych:", error);
-  }
-}
-  // --- TO JEST TRZECIA CZĘŚĆ ---
-
-// 1. Łączymy wyszukiwanie z naszym opóźnieniem (500 milisekund)
-const processSearch = debounce(fetchFromOpenFoodFacts, 500);
-
-// 2. Pobieramy pole wyszukiwarki z HTML
-// WAŻNE: Zmień '#twoj-input-wyszukiwarki' na prawdziwe ID Twojego pola!
-const searchInput = document.querySelector('#twoj-input-wyszukiwarki');
-
-// 3. Uruchamiamy funkcję, gdy zaczniesz pisać
-searchInput.addEventListener('input', (e) => {
-  processSearch(e.target.value);
-});
   // --- LOKALNA BAZA DANYCH PRODUKTÓW ---
   const localDb = [
     { name: "Jabłko", cal: 52, protein: 0.3, carbs: 14, fat: 0.2 },
